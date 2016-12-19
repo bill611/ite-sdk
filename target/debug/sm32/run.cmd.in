@@ -1,0 +1,10 @@
+@echo off
+
+pushd ..\..\..
+call common.cmd
+popd
+
+glamomem -t glamomem.dat -i -q
+glamomem -t glamomem.dat -l ${CMAKE_PROJECT_NAME}.bin
+glamomem -t glamomem.dat -R 0x003e -a 0x44
+glamomem -t glamomem.dat -R 0x1001 -a 0x168C

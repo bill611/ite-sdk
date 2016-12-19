@@ -1,0 +1,16 @@
+@echo off
+
+pushd ..\..\..
+call common.cmd
+popd
+
+rem glamomem -t glamomem.dat -i -q
+rem glamomem -t glamomem.dat -l ${CMAKE_PROJECT_NAME}.bin
+
+rem use Host Interface
+glamomem -t glamomem.dat -R 0x003A -a 0x44
+jp2_usb2spi pci 8888 -d 0 -t 0
+
+rem use JTAG interface
+rem glamomem -t glamomem.dat -q -e ${PROJECT_SOURCE_DIR}/sdk/target/debug/sm32/JTAG_Switch.txt
+rem openocd -f ${PROJECT_SOURCE_DIR}/sdk/target/debug/sm32/sm32.cfg
