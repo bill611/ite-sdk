@@ -494,7 +494,8 @@ void leaf_start_sound_play(LeafCall *call, char *file, int sec,SoundPlayCallback
         call->ringstream = ring_start(playfile,interval,sndcard);
         //call->ringstream = ring_start_with_cb(file, interval, sndcard, Leaf_media_state_callback, NULL);
         
-        if(sec == -1){//play only one time & auto stop
+		// xb add 20161221 修改-1时不能播放完整的情况
+        if(sec == -1 && !linphonec_mp3_is_ringing()){//play only one time & auto stop
             int lenth;
             lenth = get_wav_time(call->ringstream)+1;//add 1 prevent sound be cutting
             call->media_start_time = time(NULL)+lenth;

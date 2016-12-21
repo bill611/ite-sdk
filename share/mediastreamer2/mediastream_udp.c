@@ -550,9 +550,9 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     Castor3snd_reinit_for_diff_rate(CFG_AUDIO_SAMPLING_RATE,16);//check if IIS need reinited or not (sampling rate ,bitsize) 
     if (captcard!=NULL) stream->soundread=ms_snd_card_create_reader(captcard);
     if (playcard!=NULL) stream->soundwrite=ms_snd_card_create_writer(playcard);
-	
-    stream->ms.encoder=ms_filter_create_encoder("PCMU");
-    stream->ms.decoder=ms_filter_create_decoder("PCMU");
+
+    // stream->ms.encoder=ms_filter_create_encoder("PCMU");
+    // stream->ms.decoder=ms_filter_create_decoder("PCMU");
     if(stream->use_mix)
         stream->mixvoice=ms_filter_new(MS_MIXVOICE_ID);
     if(stream->use_volsend)
@@ -581,7 +581,7 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     if (stream->ec){
         hw_engine_init();
         hw_engine_link_filter(HW_EC_ID, stream->ec);
-    }        
+    }
     /* and then connect all */
     /* tip: draw yourself the picture if you don't understand */
 
@@ -593,10 +593,10 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     if(select_flow == AudioFromSoundRead)
         audio_mkv_rec_graph_link(&h,stream);
 #endif
-#ifdef PURE_WAV_RECORD  
+#ifdef PURE_WAV_RECORD
     if(select_flow == AudioFromSoundRead)
         audio_pure_wav_record_graph_link(&h,stream);
-#endif 
+#endif
     if (stream->read_resampler)
         ms_connection_helper_link(&h,stream->read_resampler,0,0);
     // [soundread]--pin0-- --pin1--[ec]--pin1--
@@ -604,7 +604,7 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
         ms_connection_helper_link(&h,stream->ec,1,1);
     // [soundread]--pin0-- --pin1--[ec]--pin1-- --pin0--[volsend]--pin0--
     if (stream->equalizerMIC)
-        ms_connection_helper_link(&h,stream->equalizerMIC,0,0);    
+        ms_connection_helper_link(&h,stream->equalizerMIC,0,0);
     if (stream->volsend)
         ms_connection_helper_link(&h,stream->volsend,0,0);
 #if 0
@@ -658,7 +658,7 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
 	
     stream->ms.start_time=ms_time(NULL);
     stream->ms.is_beginning=TRUE;
-    
+
 #ifdef PURE_WAV_RECORD
     stream->a_recorder.ticker = ms_ticker_new();
     ms_ticker_set_name(stream->a_recorder.ticker,"Audiorec MSTicker");
