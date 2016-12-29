@@ -468,13 +468,13 @@ typedef struct {
 } WavPrivate;
 
 static void wav_private_set(WavPrivate *data, const MSFmtDescriptor *obj) {
-    if(strcmp("PCMU", obj->encoding) == 0)
+    if(strcmp("PCM", obj->encoding) == 0)
     {
-        uint16_t bitsPerSample = 8;
+        uint16_t bitsPerSample = 16;
         uint16_t nbBlockAlign = (bitsPerSample * obj->nchannels)/8;
         uint32_t bitrate = bitsPerSample * obj->nchannels * obj->rate;
     
-        data->wFormatTag = le_uint16((uint16_t)7);
+        data->wFormatTag = le_uint16((uint16_t)1);
         data->nbChannels = le_uint16((uint16_t)obj->nchannels);
         data->nSamplesPerSec = le_uint32((uint32_t)obj->rate);
         data->nAvgBytesPerSec = le_uint32(bitrate);
@@ -521,7 +521,7 @@ static void mu_law_module_load_private(void *o, const uint8_t *data, size_t size
 /* μLaw module description */
 #ifdef _MSC_VER
 static const ModuleDesc mu_law_module_desc = {
-    "PCMU",
+    "PCM",
     "A_MS/ACM",
     mu_law_module_new,
     mu_law_module_free,
@@ -549,7 +549,7 @@ static const ModuleDesc pcm_module_desc = {
 };
 #else
 static const ModuleDesc mu_law_module_desc = {
-    .rfcName = "PCMU",
+    .rfcName = "PCM",
     .codecId = "A_MS/ACM",   
     .new_module = mu_law_module_new,
     .free_module = mu_law_module_free,
@@ -2059,7 +2059,7 @@ static matroska_block *write_frame(MKVRecorder *obj, mblk_t *buffer, int pin) {
 
     if(obj->inputDescsList[pin]->type == MSAudio && !obj->bAudioGetted)
     {
-        if(strcmp("PCMU", obj->inputDescsList[pin]->encoding) == 0)
+        if(strcmp("PCM", obj->inputDescsList[pin]->encoding) == 0)
         {
             obj->select_flow = AudioFromRtpRecv;
         }
@@ -2153,7 +2153,7 @@ static int recorder_open_file(MSFilter *f, void *arg) {
 
         for(i=0; i < f->desc->ninputs; i++) {
             if(obj->inputDescsList[i] != NULL) {
-                if(strcmp("PCMU", obj->inputDescsList[i]->encoding) == 0)
+                if(strcmp("PCM", obj->inputDescsList[i]->encoding) == 0)
                 {
                     obj->select_flow = AudioFromRtpRecv;
                 }

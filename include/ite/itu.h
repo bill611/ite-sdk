@@ -301,6 +301,11 @@ void ituFrameFuncExit(void);
  */
 void ituDrawVideoSurface(ITUSurface* dest, int startX, int startY, int width, int height);
 
+/**
+ * Draw video frame to RGB565 surface. 
+ */
+int ituDrawVideoSurface_Ex(ITUSurface* dest, int startX, int startY, int width, int height);
+
 /** @} */ // end of itu_renderer_framefunc
 
 /** @defgroup itu_renderer_stnlcd STN LCD

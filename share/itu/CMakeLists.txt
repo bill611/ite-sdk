@@ -145,6 +145,7 @@ add_library(itu STATIC
     itu_wheel.c
     itu_widget.c
     itu_wipeeffect.c
+	itu_framefunc.c
 )
 
 if (DEFINED CFG_LCD_ENABLE)

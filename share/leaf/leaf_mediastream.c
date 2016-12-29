@@ -149,7 +149,7 @@ void leaf_start_audio_stream(LeafCall *call, const char *addr, int port) {
 		playcard,	                    
 		captcard,	                    
 		use_ec,
-		AudioFromSoundRead
+		AudioFromUdpRecv
     );
     audio_stream_post_configure(call->audiostream,call->audio_muted,call->cfgini);        
 }
@@ -158,7 +158,7 @@ void leaf_stop_media_streams(LeafCall *call) {
     while(VideomemoRecording) usleep(1000);
     pthread_mutex_lock(&Leaf_mutex);
 	if (call->audiostream!=NULL) {
-		audio_stream_udp_stop(call->audiostream, AudioFromSoundRead);
+		audio_stream_udp_stop(call->audiostream, AudioFromUdpRecv);
 		call->audiostream=NULL;
 	}
 	if (call->videostream!=NULL){
@@ -495,7 +495,11 @@ void leaf_start_sound_play(LeafCall *call, char *file, int sec,SoundPlayCallback
         //call->ringstream = ring_start_with_cb(file, interval, sndcard, Leaf_media_state_callback, NULL);
         
 		// xb add 20161221 修改-1时不能播放完整的情况
+#ifndef WIN32
         if(sec == -1 && !linphonec_mp3_is_ringing()){//play only one time & auto stop
+#else
+		if (sec == -1){//play only one time & auto stop
+#endif
             int lenth;
             lenth = get_wav_time(call->ringstream)+1;//add 1 prevent sound be cutting
             call->media_start_time = time(NULL)+lenth;

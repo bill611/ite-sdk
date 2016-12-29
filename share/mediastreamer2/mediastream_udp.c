@@ -46,7 +46,7 @@ static void audio_pure_wav_record_graph_unlink(MSConnectionHelper *h,AudioStream
     }
 }
 
-static void audio_mkv_rec_graph_link(MSConnectionHelper *h,AudioStream *stream){
+static void audio_mkv_rec_graph_link(MSConnectionHelper *h,AudioStream *stream,LinphoneAudioStreamFlow select_flow){
     if (stream->teeforrecord) {
         int pin = 1;
         // [udprecv]--pin0--[teeforrecord]--pin0--
@@ -55,7 +55,7 @@ static void audio_mkv_rec_graph_link(MSConnectionHelper *h,AudioStream *stream){
         // [udprecv]--pin0--[teeforrecord]--pin0--
         //                                --pin1--[itcsink]
         ms_filter_link(stream->teeforrecord,1,stream->itcsink,0);
-        configure_itc(stream, AudioFromUdpRecv);
+        configure_itc(stream, select_flow);
     }
 }
 
@@ -503,7 +503,7 @@ static void configure_itc(AudioStream *stream, LinphoneAudioStreamFlow select_fl
         MSPinFormat pinfmt={0};
         pinfmt.pin=0;
         if(select_flow == AudioFromUdpRecv)
-            pinfmt.fmt=ms_factory_get_audio_format(ms_factory_get_fallback(),"PCMU", 8000, 1, NULL);
+            pinfmt.fmt=ms_factory_get_audio_format(ms_factory_get_fallback(),"PCM", 8000, 1, NULL);
         if(select_flow == AudioFromSoundRead)
             pinfmt.fmt=ms_factory_get_audio_format(ms_factory_get_fallback(),"A_PCM", 8000, 1, NULL);    
         ms_filter_call_method(stream->itcsink,MS_FILTER_SET_INPUT_FMT,&pinfmt);
@@ -591,7 +591,7 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     ms_connection_helper_link(&h,stream->soundread,-1,0);
 #ifdef TWO_WAY_AUDIORECORD
     if(select_flow == AudioFromSoundRead)
-        audio_mkv_rec_graph_link(&h,stream);
+        audio_mkv_rec_graph_link(&h,stream,select_flow);
 #endif
 #ifdef PURE_WAV_RECORD
     if(select_flow == AudioFromSoundRead)
@@ -622,9 +622,9 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     ms_connection_helper_link(&h,stream->ms.udprecv,-1,0);
 #ifdef TWO_WAY_AUDIORECORD
     if(select_flow == AudioFromUdpRecv)
-        audio_mkv_rec_graph_link(&h,stream);
+        audio_mkv_rec_graph_link(&h,stream,select_flow);
 #else
-        audio_mkv_rec_graph_link(&h,stream);
+        audio_mkv_rec_graph_link(&h,stream,select_flow);
 #endif
     // [udprecv]--pin0--[decoder]--pin0--
     if(stream->ms.decoder)

@@ -698,7 +698,7 @@ int itv_get_vidSurf_index(void)
     	  itv_rcs.vid_surf_cur_idx = g_lcd_index;
     }
     
-    if (itv_rcs.mtal_pb_mode_isr != 1)
+    if (itv_rcs.mtal_pb_mode_isr != 1 || (itv_rcs.curr_video)->src_w == 16)
         return -1;
     	
     return itv_rcs.vid_surf_cur_idx;

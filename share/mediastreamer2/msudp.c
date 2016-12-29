@@ -281,7 +281,7 @@ static void *video_receive_thread(void *arg)
 						memcpy(blk_tmp_audio->b_wptr,tcRtpGetAudioData(buf),tcRtpGetAudioLen(buf));
 						blk_tmp_audio->b_wptr += tcRtpGetAudioLen(buf);
 						mblk_set_timestamp_info(blk_tmp_audio,
-							   	(uint32_t)(audio_senderdata_tmp->udp_conf.cur_filter->ticker->time*90));
+							   	(uint32_t)(audio_senderdata_tmp->udp_conf.cur_filter->ticker->time*8));
 					}
 					if(blk_tmp_audio != NULL) {
 						ms_queue_put(&(audio_senderdata_tmp->data_queue),blk_tmp_audio);
@@ -307,32 +307,57 @@ static void *video_receive_thread(void *arg)
 				}
 #endif
 				if(start_recv){
-					blk_len_tmp = (frame_size_count + ret) > frame_size ? (frame_size - frame_size_count):ret;
+PARSE_FRAME:                    
+                                               if(buf_ptr[0] == 0 && buf_ptr[1] == 0 && buf_ptr[2] == 0 && buf_ptr[3] == 1 && 
+                                                (buf_ptr[4] == 0x67 || buf_ptr[4] == 0x68 || buf_ptr[4] == 0x65 || buf_ptr[4] == 0x06 || buf_ptr[4] == 0x61 || buf_ptr[4] == 0x41))
+                                               {
+                                                        unsigned char *pNextFrameStart, *pBufferEnd = NULL;
+                                                        pNextFrameStart = buf_ptr+4;
+                                                        pBufferEnd = buf_ptr+ret;
+                                                        for(; pNextFrameStart < pBufferEnd; pNextFrameStart++)
+                                                        {
+                                                            if (pNextFrameStart[0] == 0 && pNextFrameStart[1] == 0 && pNextFrameStart[2] == 0 && pNextFrameStart[3] == 1) break;
+                                                        }
+
+                                                        if(pBufferEnd != pNextFrameStart)
+                                                            frame_size = pNextFrameStart - buf_ptr;
+                                                        else
+                                                            frame_size = pBufferEnd - buf_ptr;
+                                                        //printf("%s, %d, framesize = %d\n", __FUNCTION__, __LINE__, frame_size);
+                                               }
+                                               else
+                                               {
+                                                    start_recv = FALSE;
+                                                    printf("Skip packet: unknown data\n");
+                                                    break;
+                                               }
+					blk_len_tmp = frame_size;
 					if(blk_tmp == NULL){
 						blk_tmp = msgb_allocator_alloc(&(d->allocator),blk_len_tmp);
 						memcpy(blk_tmp->b_wptr,buf_ptr,blk_len_tmp);
 						blk_tmp->b_wptr += blk_len_tmp;
+                                                        blk_tmp->b_rptr += 4;
 						frame_size_count += blk_len_tmp;
 						mblk_set_timestamp_info(blk_tmp, (uint32_t)(d->udp_conf.cur_filter->ticker->time*90));
 						//printf("time=0x%x\n", blk_tmp->reserved1);
-					}else{
-						blk_cont = msgb_allocator_alloc(&(d->allocator),blk_len_tmp);
-						memcpy(blk_cont->b_wptr,buf_ptr,blk_len_tmp);
-						blk_cont->b_wptr += blk_len_tmp;
-						frame_size_count += blk_len_tmp;
-						if(NULL == blk_cont_tmp){
-							blk_tmp->b_cont = blk_cont;
-						}else{
-							blk_cont_tmp->b_cont = blk_cont;
-						}
-						blk_cont_tmp = blk_cont;
 					}
 					ret -= blk_len_tmp;
 					buf_ptr += blk_len_tmp;
+                                               //printf("framesize = %d, frame_size_count = %d, ret = %d\n", __FUNCTION__, __LINE__, frame_size, frame_size_count, ret);
 					if(frame_size != 0 && frame_size == frame_size_count){
-						start_recv = FALSE;
 					if(blk_tmp != NULL)
+                                                        {
 						ms_queue_put(&(d->data_queue),blk_tmp);	
+#if 1                                 
+                                                                 if(ret != 0)
+                                                                 {
+                                                                        frame_size = frame_size_count = blk_len_tmp = 0;
+						                blk_tmp = blk_cont = blk_cont_tmp = NULL;
+                                                                        goto PARSE_FRAME;
+                                                                 }   
+#endif                                                                 
+                                                        }
+                                                        start_recv = FALSE;
 						frame_size = frame_size_count = blk_len_tmp = 0;
 						blk_tmp = blk_cont = blk_cont_tmp = NULL;
 					}
@@ -402,7 +427,11 @@ static void *audio_receive_thread(void *arg)
 				memcpy(blk_tmp->b_wptr,buf,recv_size);
 #endif
 				blk_tmp->b_wptr += recv_size;
-				mblk_set_timestamp_info(blk_tmp, (uint32_t)(d->udp_conf.cur_filter->ticker->time*90));
+#ifdef BUILD_TC
+                                     mblk_set_timestamp_info(blk_tmp,  mblk_get_timestamp_info(m));
+#else
+				mblk_set_timestamp_info(blk_tmp, (uint32_t)(d->udp_conf.cur_filter->ticker->time*8));
+#endif
 				// printf("audio recv %d\n", recv_size);
 				//printf("time=0x%x\n", blk_tmp->reserved1);
 			}
