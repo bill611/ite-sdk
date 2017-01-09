@@ -151,6 +151,7 @@ add_library(mediastreamer STATIC
     ipcamstream.c
     mixvoice.c
     #webrtcagc.c
+    adpcm.c
     )
 
 if (DEFINED CFG_BUILD_LEAF)

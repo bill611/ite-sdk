@@ -57,6 +57,8 @@ extern MSFilterDesc ms_castor3_display_desc;
 extern MSFilterDesc ms_sbc_aec_desc;
 extern MSFilterDesc ms_itc_ipcam_desc;
 extern MSFilterDesc ms_mix_voice_desc;
+extern MSFilterDesc ms_adpcm_dec_desc;
+extern MSFilterDesc ms_adpcm_enc_desc;
 #if 0
 extern MSFilterDesc ms_webrtc_agc_desc;
 #endif
@@ -120,6 +122,8 @@ MSFilterDesc * ms_voip_filter_descs[]={
 &ms_sbc_aec_desc,
 &ms_itc_ipcam_desc,
 &ms_mix_voice_desc,
+&ms_adpcm_dec_desc,
+&ms_adpcm_enc_desc,
 #if 0
 &ms_webrtc_agc_desc,
 #endif
