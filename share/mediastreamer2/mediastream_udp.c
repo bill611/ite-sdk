@@ -15,6 +15,7 @@
 #include "mediastreamer2/hwengine.h"
 #include "mediastreamer2/msfilerec.h"
 #include "iniparser/dictionary.h"
+#include "mediastreamer2/msfileplayer.h"
 
 
 //#define PURE_WAV_RECORD
@@ -666,6 +667,112 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
 #endif
     return 0;
 }
+
+Taichanstream *taichan_audio_stream_udp_new(int loc_port, bool_t ipv6)
+{
+	Taichanstream *stream=(Taichanstream *)ms_new0(Taichanstream,1);
+    MSFilterDesc *ec_desc=ms_filter_lookup_by_name("MSOslec");
+    
+    ms_filter_enable_statistics(TRUE);
+    ms_filter_reset_statistics();
+
+    stream->ms.type = AudioStreamType;
+    /*some filters are created right now to allow configuration by the application before start() */
+    stream->ms.udpsend=ms_filter_new(MS_UDP_SEND_ID);
+
+	stream->ms.udp_port = loc_port;
+    
+    return stream;
+}
+
+int taichan_audio_stream_udp_start_full(Taichanstream *stream, const char *rem_ip,int rem_port,
+    MSSndCard *playcard, MSSndCard *captcard)
+{
+    MSConnectionHelper h;
+	int cur_socket = -1;
+    udp_config_t udp_conf;
+
+	{
+		memset(&udp_conf,'\0',sizeof(udp_config_t));
+		udp_conf.remote_port = stream->ms.udp_port;
+		udp_conf.cur_socket = cur_socket;
+		udp_conf.c_type = AUDIO_OUTPUT;	
+		memset(udp_conf.group_ip,'\0',16);
+		memcpy(udp_conf.remote_ip,rem_ip,16);
+		ms_filter_call_method(stream->ms.udpsend,MS_UDP_SEND_SET_PARA,&udp_conf);
+	}
+
+    //Castor3snd_reinit_for_diff_rate(CFG_AUDIO_SAMPLING_RATE,16);//check if IIS need reinited or not (sampling rate ,bitsize) 
+    if (captcard!=NULL){
+        stream->soundread=ms_snd_card_create_reader(captcard);
+    }else{
+        char *file;
+        int special_case = 1;
+        int interval = 20000;
+        file = "A:/rings/clicked.wav";
+        stream->soundread=ms_filter_new(MS_FILE_PLAYER_ID);
+        ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_OPEN,(void*)file);
+        ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_SET_SPECIAL_CASE,&special_case);
+        ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_LOOP,&interval);
+        ms_filter_call_method_noarg(stream->soundread,MS_FILE_PLAYER_START);   
+    }
+    
+    if (playcard!=NULL) stream->soundwrite=ms_snd_card_create_writer(playcard);
+	
+    stream->ms.encoder=ms_filter_create_encoder("PCMU");
+    
+    /* and then connect all */
+    /* tip: draw yourself the picture if you don't understand */
+
+    /*sending graph*/
+    ms_connection_helper_start(&h);
+    // [soundread]--pin0--
+    ms_connection_helper_link(&h,stream->soundread,-1,0);
+    // [soundread]--pin0-- --pin1--[ec]--pin1-- --pin0--[volsend]--pin0--[encoder]--pin0--
+    if (stream->ms.encoder)
+        ms_connection_helper_link(&h,stream->ms.encoder,0,0);
+    // [soundread]--pin0-- --pin1--[ec]--pin1-- --pin0--[volsend]--pin0--[encoder]--pin0--[udpsend]
+    ms_connection_helper_link(&h,stream->ms.udpsend,0,-1);
+
+    /* create ticker */
+    stream->ms.sessions.ticker=ms_ticker_new();
+    ms_ticker_set_name(stream->ms.sessions.ticker,"Taichan Audio MSTicker");
+
+    ms_ticker_attach(stream->ms.sessions.ticker,stream->soundread);
+
+    stream->ms.start_time=ms_time(NULL);
+    stream->ms.is_beginning=TRUE;
+
+    return 0;    
+}
+
+static void taichan_audio_stream_udp_free(Taichanstream *stream) {
+    
+    if (stream->ms.udpsend!=NULL) ms_filter_destroy(stream->ms.udpsend);
+    if (stream->ms.encoder!=NULL) ms_filter_destroy(stream->ms.encoder);
+    if (stream->ms.qi) ms_quality_indicator_destroy(stream->ms.qi);
+    if (stream->soundread!=NULL) ms_filter_destroy(stream->soundread);
+    
+    ms_free(stream);
+}
+
+void taichan_audio_stream_udp_stop(Taichanstream * stream){
+    if (stream->ms.sessions.ticker){
+        MSConnectionHelper h;
+        ms_ticker_detach(stream->ms.sessions.ticker,stream->soundread);
+
+        //rtp_stats_display(rtp_session_get_stats(stream->ms.sessions.rtp_session),"Audio session's RTP statistics");
+
+        /*dismantle the outgoing graph*/
+        ms_connection_helper_start(&h);
+        ms_connection_helper_unlink(&h,stream->soundread,-1,0);
+        if (stream->ms.encoder)
+            ms_connection_helper_unlink(&h,stream->ms.encoder,0,0);
+        ms_connection_helper_unlink(&h,stream->ms.udpsend,0,-1);
+    }
+    taichan_audio_stream_udp_free(stream);
+}
+
 
 void audio_stream_udp_stop(AudioStream * stream, LinphoneAudioStreamFlow select_flow){
     if (stream->ms.sessions.ticker){

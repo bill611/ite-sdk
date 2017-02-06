@@ -218,6 +218,15 @@ struct _AudioStream
 **/
 typedef struct _AudioStream AudioStream;
 
+struct _Taichanstream
+{
+    MediaStream ms;
+    MSFilter *soundread;
+    MSFilter *soundwrite;
+};
+
+typedef struct _Taichanstream Taichanstream;
+
 struct _VoiceMemoRecordStream
 {
     MediaStream ms;

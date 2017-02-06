@@ -66,6 +66,7 @@ typedef struct _LeafCall
     struct _AudioStream *audiostream;  /**/
     struct _VideoStream *videostream;
     struct _RingStream *ringstream;
+    struct _Taichanstream *taichanstream;
     struct _VoiceMemoRecordStream *voice_memo_record_stream;/**/
     struct _VoiceMemoPlayStream *voice_memo_play_stream;
     struct _MSSndCard * ring_sndcard;   /* the playback sndcard currently used */
@@ -125,6 +126,9 @@ void leaf_start_rtsp_stream(const char *addr, int port, char *file);
 void leaf_stop_rtsp_stream(void);
 static void _check_auto_stop_sound(LeafCall *call);
 static void *leaf_background_iterate(LeafCall *call);
+void leaf_init_audio_taichanstream (LeafCall *call, unsigned short port);
+void leaf_start_audio_taichanstream(LeafCall *call, const char *addr, int port,const char *file);
+void leaf_stop_audio_taichanstream(LeafCall *call);
 
 #ifdef __cplusplus
 }

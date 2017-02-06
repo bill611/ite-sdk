@@ -281,7 +281,7 @@ static void *video_receive_thread(void *arg)
 						memcpy(blk_tmp_audio->b_wptr,tcRtpGetAudioData(buf),tcRtpGetAudioLen(buf));
 						blk_tmp_audio->b_wptr += tcRtpGetAudioLen(buf);
 						mblk_set_timestamp_info(blk_tmp_audio,
-							   	(uint32_t)(audio_senderdata_tmp->udp_conf.cur_filter->ticker->time*8));
+							   	(uint32_t)(d->udp_conf.cur_filter->ticker->time*8));
 					}
 					if(blk_tmp_audio != NULL) {
 						ms_queue_put(&(audio_senderdata_tmp->data_queue),blk_tmp_audio);

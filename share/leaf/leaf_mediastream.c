@@ -3,7 +3,7 @@ Linphone Excluded API and Function
 ***************************************/
 #include "mediastreamer2/mediastream.h"
 #include "mediastreamer2/msjpegwriter.h"
-#include "mediastreamer2/msfilewriter.h" 
+#include "mediastreamer2/msfilewriter.h"
 #include "iniparser/iniparser.h"
 
 #include "leaf_mediastream.h"
@@ -58,25 +58,25 @@ void Leaf_media_state_callback(void *userdata, struct _MSFilter *f, unsigned int
 
 		default:
 			break;
-	}		
+	}
 }
 
 LeafCall* leaf_init(void) {
-    
+
 	LeafCall *call=ms_new0(LeafCall,1);
 	ms_init();
-     
+
     call->ring_sndcard = get_sndcard(MS_SND_CARD_CAP_PLAYBACK);
   	call->play_sndcard = get_sndcard(MS_SND_CARD_CAP_PLAYBACK);
 	call->capt_sndcard = get_sndcard(MS_SND_CARD_CAP_CAPTURE);
     {
         pthread_attr_t attr;
         pthread_attr_init(&attr);
-        ms_thread_create(&call->Thread, &attr, leaf_background_iterate, call);    
+        ms_thread_create(&call->Thread, &attr, leaf_background_iterate, call);
     }
-    
+
     call->cfgini = iniparser_load(CFG_PRIVATE_DRIVE ":/Esound.ini");
-    
+
 	return call;
 }
 
@@ -94,9 +94,9 @@ void leaf_init_video_streams (LeafCall *call, unsigned short port) {
 
 void leaf_init_audio_streams (LeafCall *call, unsigned short port) {
 	AudioStream *audiostream;
-	
+
 	call->audiostream=audiostream=audio_stream_udp_new(port,FALSE);
-      
+
 #ifdef ENABLE_AUDIO_NOISE_GATE
     audiostream->use_ng=iniparser_getint(call->cfgini , "Esound:noisegate", 1);
 #endif
@@ -116,7 +116,7 @@ void leaf_init_audio_streams (LeafCall *call, unsigned short port) {
     audiostream->use_gc=FALSE;
     audiostream->use_agc=FALSE;
     if(audiostream->use_ec)
-        audiostream->ec=ms_filter_new(MS_SBC_AEC_ID);//creat    
+        audiostream->ec=ms_filter_new(MS_SBC_AEC_ID);//creat
 }
 
 void leaf_start_video_stream(LeafCall *call, const char *addr, int port) {
@@ -128,9 +128,9 @@ void leaf_start_video_stream(LeafCall *call, const char *addr, int port) {
 		dir = VideoStreamRecvOnly;
 
 	video_stream_set_direction (call->videostream, dir);
-	video_stream_udp_start(call->videostream,                    	
-		addr, port,                    	
-		FALSE, FALSE, NULL); 
+	video_stream_udp_start(call->videostream,
+		addr, port,
+		FALSE, FALSE, NULL);
 }
 
 void leaf_start_audio_stream(LeafCall *call, const char *addr, int port) {
@@ -141,19 +141,56 @@ void leaf_start_audio_stream(LeafCall *call, const char *addr, int port) {
 	bool_t use_ec;
     use_ec = call->audiostream->use_ec;
     if (playcard) ms_snd_card_set_level(playcard,MS_SND_CARD_PLAYBACK,call->sound_conf.play_level);
-    if (captcard) ms_snd_card_set_level(captcard,MS_SND_CARD_CAPTURE,call->sound_conf.rec_level);    
+    if (captcard) ms_snd_card_set_level(captcard,MS_SND_CARD_CAPTURE,call->sound_conf.rec_level);
 	audio_stream_udp_start_full(
-		call->audiostream,	                                        
-		addr,	                    
-		port,	                                        
-		playcard,	                    
-		captcard,	                    
+		call->audiostream,
+		addr,
+		port,
+		playcard,
+		captcard,
 		use_ec,
 		AudioFromUdpRecv
     );
-    audio_stream_post_configure(call->audiostream,call->audio_muted,call->cfgini);        
+    audio_stream_post_configure(call->audiostream,call->audio_muted,call->cfgini);
 }
 
+void leaf_init_audio_taichanstream (LeafCall *call, unsigned short port) {
+
+    Taichanstream *taichanstream;
+	if(call->taichanstream!=NULL)  //新增關掉前面的太川鈴聲stream(保護作用)
+		leaf_stop_audio_taichanstream(call);
+	call->taichanstream=taichanstream=taichan_audio_stream_udp_new(port,FALSE);
+
+}
+
+void leaf_start_audio_taichanstream(LeafCall *call, const char *addr, int port,const char *file) {
+	/*to be defined*/
+	MSSndCard *playcard=call->play_sndcard;
+    if (playcard) ms_snd_card_set_level(playcard,MS_SND_CARD_PLAYBACK,call->sound_conf.ring_level);
+
+	taichan_audio_stream_udp_start_full(
+		call->taichanstream,
+		addr,
+		port,
+        NULL,
+		NULL
+    );
+	leaf_start_sound_play(call,file,0,NULL);
+}
+
+void leaf_stop_audio_taichanstream(LeafCall *call) {
+	/*to be defined*/
+
+    pthread_mutex_lock(&Leaf_mutex);
+	if(call->ringstream!=NULL){
+		leaf_stop_sound_play(call);
+	}
+    if(call->taichanstream!=NULL){
+        taichan_audio_stream_udp_stop(call->taichanstream);
+        call->taichanstream=NULL;
+    }
+    pthread_mutex_unlock(&Leaf_mutex);
+}
 void leaf_stop_media_streams(LeafCall *call) {
     while(VideomemoRecording) usleep(1000);
     pthread_mutex_lock(&Leaf_mutex);
@@ -165,26 +202,33 @@ void leaf_stop_media_streams(LeafCall *call) {
 		video_stream_udp_stop(call->videostream);
 		call->videostream=NULL;
 	}
+	if(call->ringstream!=NULL){
+		leaf_stop_sound_play(call);//結束撥放一般聲音。
+	}   
+    if (call->taichanstream!=NULL){
+        taichan_audio_stream_udp_stop(call->taichanstream);
+        call->taichanstream=NULL;
+	}
     pthread_mutex_unlock(&Leaf_mutex);
 }
 
 void leaf_start_ipcam_stream(LeafCall *call, const char *addr, int port) {
     video_stream_set_direction (call->videostream, VideoStreamRecvOnly);
-    video_stream_udp_start(call->videostream,                    	
-		addr, port,                    	
+    video_stream_udp_start(call->videostream,
+		addr, port,
 		FALSE, TRUE, NULL);
 #ifdef CFG_RTSP_CLIENT_ENABLE
     SetRTSPClientMode(IPCAM_MODE);
     startRTSPClient(addr, port, NULL, NULL);
-#endif    
-} 
+#endif
+}
 
 void leaf_stop_ipcam_stream(LeafCall *call) {
     while(VideomemoRecording) usleep(1000);
     pthread_mutex_lock(&Leaf_mutex);
 #ifdef CFG_RTSP_CLIENT_ENABLE
     stopRTSPClient();
-#endif    
+#endif
     if (call->videostream!=NULL){
 		video_stream_udp_stop(call->videostream);
 		call->videostream=NULL;
@@ -196,7 +240,7 @@ int leaf_take_video_snapshot(LeafCall *call, char *file,FileWriterCallback func 
 	if ( file ) file=lpc_strip_blanks(file);
 	if ( ! file || ! *file ) return 0;
 
-	FileWriter_callback = func;   
+	FileWriter_callback = func;
     if (call->videostream!=NULL && call->videostream->jpegwriter!=NULL){
 		ms_filter_call_method(call->videostream->jpegwriter,MS_JPEG_WRITER_TAKE_SNAPSHOT,(void*)file);
 		return 1;
@@ -210,10 +254,10 @@ int leaf_take_video_snapshot(LeafCall *call, char *file,FileWriterCallback func 
 int leaf_show_snapshot(LeafCall *call, int width,int height,char *file){
 	if ( file ) file=lpc_strip_blanks(file);
 	if ( ! file || ! *file ) return 0;
-	
-	#if defined(CFG_BUILD_ITV) && !defined(CFG_TEST_VIDEO) 
+
+	#if defined(CFG_BUILD_ITV) && !defined(CFG_TEST_VIDEO)
 		itv_set_pb_mode(1);
-	#endif	
+	#endif
 #ifndef WIN32
 	return ituJpegLoadFileEx(width,height,file);
 #endif
@@ -268,7 +312,7 @@ int leaf_start_video_memo_record(LeafCall *call, char *file) {
             strcpy(call->videomemo_file, file);
             rc = pthread_create(&tid, NULL, video_memo_start_record_task, (void *)call);
             pthread_detach(tid);
-        }      
+        }
     }
     return 1;
 }
@@ -279,10 +323,10 @@ void leaf_stop_video_memo_record(LeafCall *call) {
         int rc;
         pthread_t tid;
         if(VideomemoRecording)
-        {  
+        {
             rc = pthread_create(&tid, NULL, video_memo_stop_record_task, (void *)call);
             pthread_detach(tid);
-        }           
+        }
     }
 }
 
@@ -300,7 +344,7 @@ int leaf_start_video_memo_playback(LeafCall *call, char *file) {
     VideomemoPlayFinished = false;
 	/*how to get sndcard???*/
     if (sndcard) ms_snd_card_set_level(sndcard,MS_SND_CARD_PLAYBACK,level);
-	
+
 	castor3snd_deinit_for_video_memo_play();
 #ifdef CFG_VIDEO_ENABLE
     mtal_pb_init(video_memo_playback_event_handler);
@@ -308,7 +352,7 @@ int leaf_start_video_memo_playback(LeafCall *call, char *file) {
     mtal_spec.vol_level = level;
     mtal_pb_select_file(&mtal_spec);
     mtal_pb_play();
-#endif      
+#endif
     return 1;
 }
 
@@ -316,7 +360,7 @@ void leaf_stop_video_memo_playback(LeafCall *call) {
 #ifdef CFG_VIDEO_ENABLE
     mtal_pb_stop();
     mtal_pb_exit();
-#endif        
+#endif
     castor3snd_reinit_for_video_memo_play();
     VideomemoPlayFinished = false;
 }
@@ -331,7 +375,7 @@ int leaf_get_video_memo_current_time() {
     int ret = 0;
     int currenttime = 0;
 
-#ifdef CFG_VIDEO_ENABLE    
+#ifdef CFG_VIDEO_ENABLE
     ret = mtal_pb_get_current_time(&currenttime);
 #endif
 
@@ -345,7 +389,7 @@ int leaf_get_video_memo_total_time() {
     int ret = 0;
     int totaltime = 0;
 
-#ifdef CFG_VIDEO_ENABLE    
+#ifdef CFG_VIDEO_ENABLE
     ret = mtal_pb_get_total_duration(&totaltime);
 #endif
 
@@ -398,7 +442,7 @@ int leaf_start_audio_memo_record(LeafCall *call, char *file) {
             strcpy(call->audiomemo_file, file);
             rc = pthread_create(&tid, NULL, audio_memo_start_record_task, (void *)call);
             pthread_detach(tid);
-        }      
+        }
     }
     return 1;
 }
@@ -409,10 +453,10 @@ void leaf_stop_audio_memo_record(LeafCall *call) {
         int rc;
         pthread_t tid;
         if(AudiomemoRecording)
-        {  
+        {
             rc = pthread_create(&tid, NULL, audio_memo_stop_record_task, (void *)call);
             pthread_detach(tid);
-        }           
+        }
     }
 }
 
@@ -420,9 +464,9 @@ bool leaf_audio_memo_is_recording(void) {
     return AudiomemoRecording;
 }
 
-void leaf_start_voice_memo_record(LeafCall *call, char *file) {  
+void leaf_start_voice_memo_record(LeafCall *call, char *file) {
     MSSndCard *sndcard=call->capt_sndcard;
-    
+
     if (!file) return ;
     if (call->voice_memo_record_stream!=NULL){
         voice_memo_stop_record(call->voice_memo_record_stream);
@@ -441,9 +485,9 @@ void leaf_stop_voice_memo_record(LeafCall *call) {
         call->voice_memo_record_stream=NULL;
     }
 }
-/*  
+/*
 note:same as leaf_start_sound_play() API remove it
-void leaf_start_voice_memo_playback(LeafCall *call, char *file) {    
+void leaf_start_voice_memo_playback(LeafCall *call, char *file) {
     MSSndCard *sndcard=call->ring_sndcard;
     if (!file) return ;
     if (call->ringstream!=NULL){
@@ -470,7 +514,7 @@ void leaf_stop_voice_memo_playback(LeafCall *call) {
     }
 }
  */
- 
+
 bool leaf_audio_sound_is_playing(void) {
     return AudioSoundPlay;
 }
@@ -484,16 +528,16 @@ void leaf_start_sound_play(LeafCall *call, char *file, int sec,SoundPlayCallback
     if(call->ringstream != NULL){
         leaf_stop_sound_play(call);
     }
-    
+
     if(sec == 0)//repeat ring
         interval=2000;
-    
+
     if(func)
         call->ringstream = ring_start_with_cb(file, interval, sndcard, Leaf_media_state_callback, NULL);
     else{
         call->ringstream = ring_start(playfile,interval,sndcard);
         //call->ringstream = ring_start_with_cb(file, interval, sndcard, Leaf_media_state_callback, NULL);
-        
+
 		// xb add 20161221 修改-1时不能播放完整的情况
 #ifndef WIN32
         if(sec == -1 && !linphonec_mp3_is_ringing()){//play only one time & auto stop
@@ -504,17 +548,18 @@ void leaf_start_sound_play(LeafCall *call, char *file, int sec,SoundPlayCallback
             lenth = get_wav_time(call->ringstream)+1;//add 1 prevent sound be cutting
             call->media_start_time = time(NULL)+lenth;
         }
-        
+
         if(sec > 0)//auto stop wav after sec time ;
             call->media_start_time = time(NULL)+sec;
     }
-    
+
     AudioSoundPlay = true;
     soundPlayCallback = func;
 }
 
 void leaf_stop_sound_play(LeafCall *call) {
 
+    pthread_mutex_lock(&Leaf_mutex);
     if(call->ringstream){
         ring_stop(call->ringstream);
         call->ringstream=NULL;
@@ -524,7 +569,7 @@ void leaf_stop_sound_play(LeafCall *call) {
         leaf_sound_play_callbackfunc(SOUND_FINISH_PLAY);
         soundPlayCallback = NULL;
     }
-    
+    pthread_mutex_unlock(&Leaf_mutex);
 }
 
 void leaf_pause_sound_play(LeafCall *call,int pause) {
@@ -553,7 +598,7 @@ void leaf_set_rec_level(LeafCall *call,int level){
 double leaf_get_wav_time(char *filename){
     //wav header must be 44byte
     double time = 0.0;
-  
+
     if (filename != NULL && strstr(filename,".wav"))
     {
         FILE* fp;
@@ -564,13 +609,13 @@ double leaf_get_wav_time(char *filename){
             fseek(fp, 28, SEEK_SET);
             fread(&bit_rate, sizeof(bit_rate), 1, fp);
             fseek(fp, 40, SEEK_SET);
-            fread(&data_size, sizeof(data_size), 1, fp);        
+            fread(&data_size, sizeof(data_size), 1, fp);
             fclose(fp);
             fp = NULL;
             time = (double)data_size/(double)bit_rate;
         }
     }
-    return time;    
+    return time;
 }
 
 void leaf_start_rtsp_stream(const char *addr, int port, char *file) {
@@ -586,9 +631,9 @@ void leaf_stop_rtsp_stream(void) {
     stopRTSPClient();
 #endif
     castor3snd_reinit_for_video_memo_play();
-} 
-    
-static MSSndCard *get_sndcard(unsigned int cap){ 
+}
+
+static MSSndCard *get_sndcard(unsigned int cap){
     MSSndCard *sndcard=NULL;
     if (sndcard==NULL) {
         /* get a card that has read+write capabilities */

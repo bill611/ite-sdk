@@ -216,6 +216,7 @@ static void init_alc5616_common(void)
             alc5616_write_reg(0x64, 0x8800); /* MIC BST1 Boost Power Ctrl */
 
             alc5616_write_reg(0x1C, 0x722F);/* ADC digital Volume 25.125dB */
+            alc5616_writeRegMask(0x1C, curr_input_pga_volume << 8, 0x7F << 8);
             alc5616_write_reg(0x27, 0x3800); 
         }
         else
@@ -522,7 +523,7 @@ void itp_codec_playback_mute(void)
 
     /* just decrease output volume */
 	alc5616_write_reg(0x2A, 0x6363);/*Stereo DAC digital mixer control ,note:if comment, farend have no voice when communicating press mute */
-	alc5616_writeRegMask(0x65,(0<<12)|(0<<15),(1<<12)|(1<<15)); /*power down OUTMIXL/R note:prevent switch pop sound*/       
+	alc5616_writeRegMask(0x65,(0<<14)|(0<<15),(1<<14)|(1<<15)); /*power down OUTMIXL/R note:prevent switch pop sound*/       
     //    if(_alc5616_hpout)
     //    {
     //        alc5616_writeRegMask(0x02, (1<<7)|(1<<15), (1<<7)|(1<<15)); /* Mute HPOL/HPOR */
@@ -557,7 +558,7 @@ void itp_codec_playback_unmute(void)
     //alc5616_write_reg(0x19, tmp);
 
 	alc5616_write_reg(0x2A, 0x0202);/*Stereo DAC digital mixer control ,note:if comment, farend have no voice when communicating press mute */
-	alc5616_writeRegMask(0x65,(1<<12)|(1<<15),(1<<12)|(1<<15));/*power on OUTMIXL/R note:prevent switch pop sound*/
+	alc5616_writeRegMask(0x65,(1<<14)|(1<<15),(1<<14)|(1<<15));/*power on OUTMIXL/R note:prevent switch pop sound*/
 /* 	if(_alc5616_hpout) 
 	{
         alc5616_writeRegMask(0x02, (0<<7)|(0<<15), (1<<7)|(1<<15));        
