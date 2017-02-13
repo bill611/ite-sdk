@@ -453,7 +453,7 @@ int UTF8StrToUnicodeStr (unsigned char * utf8_str,
 		{
 			if ((n = UTF8ToUnicode (s, &unicode)) > 0)
 			{
-				if ((count + 1) >= unicode_str_size)
+				if (++count >= unicode_str_size)
 				{
 					return count;
 				}

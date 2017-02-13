@@ -18,6 +18,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "mediastreamer2/msticker.h"
+#include "SDL/SDL.h"
 
 #if 1 //ndef WIN32
 #include <sys/time.h>
@@ -407,7 +408,8 @@ static int wait_next_tick(void *data, uint64_t virt_ticker_time){
     int late;
 
     while(1){
-        realtime=s->get_cur_time_ptr(s->get_cur_time_data)-s->orig;
+        //realtime=s->get_cur_time_ptr(s->get_cur_time_data)-s->orig;
+        realtime = SDL_GetTicks() - s->orig;
         diff=s->time-realtime;
         if (diff>0){
             /* sleep until next tick */
@@ -436,7 +438,8 @@ void * ms_ticker_run(void *arg)
     precision = set_high_prio(s);
 
     s->ticks=1;
-    s->orig=s->get_cur_time_ptr(s->get_cur_time_data);
+   // s->orig=s->get_cur_time_ptr(s->get_cur_time_data);
+    s->orig = SDL_GetTicks();
 
     ms_mutex_lock(&s->lock);
 

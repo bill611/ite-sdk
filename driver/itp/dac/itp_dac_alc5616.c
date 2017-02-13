@@ -33,7 +33,7 @@ static int _alc5616_micin = 1;
 static int _alc5616_linein = 1;
 static int _alc5616_spkout = 1;
 static int _alc5616_hpout = 1;
-static int _alc5616_channel = 1;
+static int _alc5616_channel = 2;
 
 static int _alc5616_cold_start = 1; /* alc5616q should enable power only once */
 
