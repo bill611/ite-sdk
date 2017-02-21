@@ -18,7 +18,7 @@
 #include "mediastreamer2/msfileplayer.h"
 
 
-//#define PURE_WAV_RECORD
+#define PURE_WAV_RECORD
 static void configure_itc(AudioStream *stream, LinphoneAudioStreamFlow select_flow);
 
 static void audio_pure_wav_record_graph_link(MSConnectionHelper *h,AudioStream *stream){
@@ -708,12 +708,12 @@ int taichan_audio_stream_udp_start_full(Taichanstream *stream, const char *rem_i
     }else{
         char *file;
         int special_case = 1;
-        int interval = 20000;
-        file = "A:/rings/clicked.wav";
+		int interval = 20000;
+		file = "A:/rings/clicked.wav";
         stream->soundread=ms_filter_new(MS_FILE_PLAYER_ID);
-        ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_OPEN,(void*)file);
+		ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_OPEN,(void*)file);
         ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_SET_SPECIAL_CASE,&special_case);
-        ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_LOOP,&interval);
+		ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_LOOP,&interval);
         ms_filter_call_method_noarg(stream->soundread,MS_FILE_PLAYER_START);   
     }
     
@@ -752,6 +752,8 @@ static void taichan_audio_stream_udp_free(Taichanstream *stream) {
     if (stream->ms.encoder!=NULL) ms_filter_destroy(stream->ms.encoder);
     if (stream->ms.qi) ms_quality_indicator_destroy(stream->ms.qi);
     if (stream->soundread!=NULL) ms_filter_destroy(stream->soundread);
+	
+    if (stream->ms.sessions.ticker!=NULL) ms_ticker_destroy(stream->ms.sessions.ticker);
     
     ms_free(stream);
 }

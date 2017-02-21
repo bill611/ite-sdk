@@ -899,7 +899,12 @@ MS2_PUBLIC VoiceMemoRecordStream *voice_memo_start_record (const char * file, MS
     VoiceMemoRecordStream *stream;
     MSConnectionHelper h;
     char* ext;
-    int encode_type = 0;//0:unknow(speex) 1:PCM 6:a-law 7:u-law 
+    int encode_type ;//0:unknow(speex) 1:PCM 6:a-law 7:u-law 
+    
+    if (strstr(file,".svm"))
+        encode_type = 0;
+    else//wav
+        encode_type = 1;
     
     stream=(VoiceMemoRecordStream *)ms_new0(VoiceMemoRecordStream,1);
 

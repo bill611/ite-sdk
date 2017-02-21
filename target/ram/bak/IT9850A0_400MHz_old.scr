@@ -195,17 +195,9 @@ if (read_mask(0x0000, 0x1000)==0x0000) {
     // select MA13 MA12 as bank address
     // linear mode, 512Mbits 4banks 16bits_BusWidth 10Bits_col_add(2KByte per page)
     if (read_mask(0x0000, 0x6000)==0x4000) {        // IT9852
-        if (read_mask(0xDE000014, 0x0002)==0x0002) {    // AX2
-            write(0x0300, 0x3298);
-        } else {
-            write(0x0300, 0xb298);
-        }        
+        write(0x0300, 0x3298);
     } else {                                        // IT9854, IT9856, IT9866
-        if (read_mask(0xDE000014, 0x0002)==0x0002)  {   // AX2
-            write(0x0300, 0x32a8);
-        } else {
-            write(0x0300, 0xb2a8);
-        }
+        write(0x0300, 0x32a8);
     }
     write(0x030a, 0x0025);                          // Enable auto precharge, Turbo mode, RISC R/W merge
     write(0x0310, 0x1a22);
@@ -226,17 +218,9 @@ if (read_mask(0x0000, 0x1000)==0x0000) {
     // select MA13 MA12 as bank address
     // linear mode, 512Mbits 4banks 16bits_BusWidth 10Bits_col_add(2KByte per page)
     if (read_mask(0x0000, 0x6000)==0x4000) {        // IT9852
-        if (read_mask(0xDE000014, 0x0002)==0x0002) {    // AX2
-            write(0x0300, 0x3298);
-        } else {
-            write(0x0300, 0xb298);
-        }
+        write(0x0300, 0x3298);
     } else {                                        // IT9854, IT9856, IT9866
-        if (read_mask(0xDE000014, 0x0002)==0x0002) {    // AX2
-            write(0x0300, 0x32a8);
-        } else {
-            write(0x0300, 0xb2a8);
-        }
+        write(0x0300, 0x32a8);
     }
     write(0x030a, 0x0025);                          // Enable auto precharge, Turbo mode, RISC R/W merge
     write(0x0310, 0x1a22);

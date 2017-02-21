@@ -695,7 +695,14 @@ static inline unsigned int ithIsTilingModeOn(void)
 #if defined(CFG_TILING_MODE_OFF)
 	return 0;
 #else
+  #if defined(CFG_DOORBELL_INDOOR) || defined(CFG_DOORBELL_ADMIN)
+    if (ithGetRevisionId() == 0)
+    	return 0;
+    else
+    	return 1;
+  #else
 	return 1;
+  #endif  	
 #endif
 }
 
