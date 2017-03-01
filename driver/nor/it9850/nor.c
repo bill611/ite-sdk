@@ -1424,13 +1424,13 @@ NorWrite(
 				}
 				else
 				{
-					if (norUpdate(norObject, currNorAddress, currDataPtr, norObject->context.bytesPerSector) == false)
+					if (norUpdate(norObject, currNorAddress, currDataPtr, norObject->context.bytesPerSector * norObject->context.sectorsPerBlock) == false)
 					{
 						result = 1;
 						break;
 					}
-					currNorAddress += norObject->context.bytesPerSector;
-					currDataPtr += norObject->context.bytesPerSector;
+					currNorAddress += norObject->context.bytesPerSector * norObject->context.sectorsPerBlock;
+					currDataPtr += norObject->context.bytesPerSector * norObject->context.sectorsPerBlock;
 				}
 			}
 		}

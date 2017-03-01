@@ -233,3 +233,55 @@ end:
     }
     return ret;
 }
+
+int ugResetTempFactory(void)
+{
+    DIR           *dir;
+    struct dirent *ent;
+    int ret = 0;
+
+    dir = opendir(CFG_PRIVATE_DRIVE ":/backup");
+    if (dir == NULL)
+    {
+        LOG_ERR "cannot open directory %s\n", CFG_PRIVATE_DRIVE ":/backup" LOG_END
+        ret = __LINE__;
+        goto end;
+    }
+
+    while ((ent = readdir(dir)) != NULL)
+    {
+        if (strcmp(ent->d_name, ".") == 0)
+            continue;
+
+        if (strcmp(ent->d_name, "..") == 0)
+            continue;
+
+        if (ent->d_type == DT_DIR)
+        {
+            char destPath[PATH_MAX];
+            char srcPath[PATH_MAX];
+            int ret1;
+
+			if (strcmp(ent->d_name,CFG_TEMP_DRIVE) == 0) {
+				strcpy(destPath, ent->d_name);
+				strcat(destPath, ":");
+				strcpy(srcPath, CFG_PRIVATE_DRIVE ":/backup/");
+				strcat(srcPath, ent->d_name);
+
+				ret1 = ugRestoreDir(destPath, srcPath);
+				if (ret1) {
+					if (ret == 0)
+						ret = ret1;
+				}
+			}
+        }
+    }
+
+end:
+    if (dir)
+    {
+        if (closedir(dir))
+            LOG_WARN "cannot closedir (%s)\n", CFG_PRIVATE_DRIVE ":/backup" LOG_END
+    }
+    return ret;
+}
