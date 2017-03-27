@@ -22,11 +22,8 @@
 #define CFG_TOUCH_KEY_NUM	(5)
 #endif
 
-#if (CFG_TOUCH_KEY_NUM==5)
 #define CBM7110_IIC_ADDR		(0x22)
-#else
-#define CBM7110_IIC_ADDR		(0x8C>>1)
-#endif
+
 #define CBM7110_ID              (0x01)
 #define CBM7110_REG_KEYFIFO     (0xA8)
 
@@ -200,9 +197,6 @@ get_touch_key_end:
 
 static uint8_t _tanslateTouchValue(uint16_t value, uint8_t totalKeyNum)
 {
-	// switch(totalKeyNum)
-	// {
-		// case 5:
 	switch (value)
 	{
 		case 0x04: return 0;
@@ -210,13 +204,10 @@ static uint8_t _tanslateTouchValue(uint16_t value, uint8_t totalKeyNum)
 		case 0x01: return 2;
 		case 0x40: return 3;
 		case 0x20: return 4;
-		default : return -1;
+		case 0x10: return 5;
+		case 0x08: return 6;
+		default: return -1;
 	}
-		// default:
-			// printf("touch keypad error: totalKeyNum incorrect, keyNum=%d\n",totalKeyNum);
-			// break;
-	// }
-	// return (uint8_t)-1;
 }
 
 /**************************************************************************
