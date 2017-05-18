@@ -12,6 +12,26 @@ if (DEFINED CFG_BUILD_TC)
         -DBUILD_TC
         )
 endif()
+if (DEFINED CFG_TC3000_Z1)
+    add_definitions(
+        -DTC3000_Z1
+        )
+endif()
+if (DEFINED CFG_TC3000_Q1)
+    add_definitions(
+        -DTC3000_Q1
+        )
+endif()
+if (DEFINED CFG_TC3000_T1)
+    add_definitions(
+        -DTC3000_T1
+        )
+endif()
+if (DEFINED CFG_TC3000_18D1)
+    add_definitions(
+		-DTC3000_18D1
+        )
+endif()
 if (DEFINED CFG_TC3000_BZ)
     add_definitions(
         -DTC3000_BZ
@@ -66,6 +86,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/sdk/share/audio_mgr	
     # ITV Buffer Manager, MTAL: medialink project
     ${PROJECT_SOURCE_DIR}/sdk/driver/itv/
+    ${PROJECT_SOURCE_DIR}/project/
     )
 
 add_library(mediastreamer STATIC

@@ -23,7 +23,7 @@ extern "C" {
 
 	unsigned char * tcRtpInitRecBuffer(void);
 	void tcRtpDeInitRecBuffer(unsigned char **pBuf);
-	int tcRtpRecvVideoAudioBuffer(int socket,void *pBuf);
+	int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out);
 	int tcRtpSendVideo(int socket,unsigned char *buf,unsigned int size);
 	void tcRtpSendAudio(int socket,
 			unsigned char *buf,

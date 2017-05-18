@@ -169,7 +169,8 @@ void ituListBoxDraw(ITUWidget* widget, ITUSurface* dest, int x, int y, uint8_t a
     ituSurfaceSetClipping(dest, prevClip.x, prevClip.y, prevClip.width, prevClip.height);
 }
 
-static void ListBoxPrevPage(ITUListBox* listbox)
+// xb 20170425 开放listbox翻页接口
+void ListBoxPrevPage(ITUListBox* listbox)
 {
     char buf[32];
 
@@ -190,7 +191,8 @@ static void ListBoxPrevPage(ITUListBox* listbox)
     ituWidgetUpdate(listbox, ITU_EVENT_LAYOUT, 0, 0, 0);
 }
 
-static void ListBoxNextPage(ITUListBox* listbox)
+// xb 20170425 开放listbox翻页接口
+void ListBoxNextPage(ITUListBox* listbox)
 {
     char buf[32];
 
