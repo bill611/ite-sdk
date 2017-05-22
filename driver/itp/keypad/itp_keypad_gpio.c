@@ -20,11 +20,14 @@ int itpKeypadProbe(void)
         int pin = kpGpioTable[i];
         uint32_t value = ithGpioGet(pin);
         
-        if (pin >= 32)
-            pin -= 32;
+		pin %= 32;
+        // if (pin >= 32)
+            // pin -= 32;
         
-        if ( (value & (0x1 << pin)) == 0 )
-            return i;
+		if ( (value & (0x1 << pin)) == 0 ) {
+			// printf("[%d]gpio:%d,value:%d\n", i,pin,value);
+			return i;
+		}
     }
     return -1;
 }

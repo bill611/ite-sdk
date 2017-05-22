@@ -39,6 +39,10 @@
 #include "18d1_mh/config.h"
 #include "18d1_mh/tc_protocol/public.h"
 #endif
+#ifdef TC3000_X1
+#include "x1_mh/config.h"
+#include "x1_mh/tc_protocol/public.h"
+#endif
 /* ---------------------------------------------------------------------------*
  *                  extern variables declare
  *----------------------------------------------------------------------------*/

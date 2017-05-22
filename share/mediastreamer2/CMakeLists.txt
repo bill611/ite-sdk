@@ -32,6 +32,11 @@ if (DEFINED CFG_TC3000_18D1)
 		-DTC3000_18D1
         )
 endif()
+if (DEFINED CFG_TC3000_X1)
+    add_definitions(
+        -DTC3000_X1
+        )
+endif()
 if (DEFINED CFG_TC3000_BZ)
     add_definitions(
         -DTC3000_BZ
