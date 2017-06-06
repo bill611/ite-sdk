@@ -22,6 +22,16 @@ if (DEFINED CFG_TC3000_Q1)
         -DTC3000_Q1
         )
 endif()
+if (DEFINED CFG_TC3000_W2)
+    add_definitions(
+		-DTC3000_W2
+        )
+endif()
+if (DEFINED CFG_TC3000_W2_CM)
+    add_definitions(
+		-DTC3000_W2_CM
+        )
+endif()
 if (DEFINED CFG_TC3000_T1)
     add_definitions(
         -DTC3000_T1
@@ -35,21 +45,6 @@ endif()
 if (DEFINED CFG_TC3000_X1)
     add_definitions(
         -DTC3000_X1
-        )
-endif()
-if (DEFINED CFG_TC3000_BZ)
-    add_definitions(
-        -DTC3000_BZ
-        )
-endif()
-if (DEFINED CFG_TC3000_FL)
-    add_definitions(
-        -DTC3000_FL
-        )
-endif()
-if (DEFINED CFG_TC3000_WM)
-    add_definitions(
-        -DTC3000_WM
         )
 endif()
 

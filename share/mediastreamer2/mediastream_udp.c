@@ -16,19 +16,20 @@
 #include "mediastreamer2/msfilerec.h"
 #include "iniparser/dictionary.h"
 #include "mediastreamer2/msfileplayer.h"
+#include "tc_include.h"
 
 
 #define PURE_WAV_RECORD
 static void configure_itc(AudioStream *stream, LinphoneAudioStreamFlow select_flow);
 
 static void audio_pure_wav_record_graph_link(MSConnectionHelper *h,AudioStream *stream){
-    
+
     if (stream->a_recorder.tee) { // link pure audio record graph
         ms_connection_helper_link(h, stream->a_recorder.tee, 0, 0);
         ms_filter_link(stream->a_recorder.tee, 1, stream->a_recorder.itcsink, 0);
         ms_filter_link(stream->a_recorder.audio_input,0,stream->a_recorder.recorder,0);
-        ms_filter_call_method(stream->a_recorder.itcsink,MS_ITC_SINK_CONNECT,stream->a_recorder.audio_input);            
-    }    
+        ms_filter_call_method(stream->a_recorder.itcsink,MS_ITC_SINK_CONNECT,stream->a_recorder.audio_input);
+    }
 }
 
 static void audio_pure_wav_record_graph_unlink(MSConnectionHelper *h,AudioStream *stream){
@@ -42,7 +43,7 @@ static void audio_pure_wav_record_graph_unlink(MSConnectionHelper *h,AudioStream
             if (rstate!=MSRecorderClosed){
                 ms_filter_call_method_noarg(stream->a_recorder.recorder, MS_FILE_REC_CLOSE);
             }
-        }                              
+        }
         ms_filter_call_method(stream->a_recorder.itcsink,MS_ITC_SINK_CONNECT,NULL);
     }
 }
@@ -64,7 +65,7 @@ static void audio_mkv_rec_graph_unlink(MSConnectionHelper *h,AudioStream *stream
     if (stream->teeforrecord!=NULL) {
         ms_connection_helper_unlink(h,stream->teeforrecord,0,0);
         ms_filter_unlink(stream->teeforrecord,1,stream->itcsink,0);
-    }    
+    }
 }
 
 static void choose_display_name(VideoStream *stream){
@@ -141,11 +142,11 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
 		stream->cam=cam;
 		stream->source = source;
 		printf("### %s:%d create cam \"%s\"\n", __FUNCTION__, __LINE__, stream->source->desc->name);
-		
+
 		if (mobile_call_mode){
 			printf("set mobile call mode\n");
 			ms_filter_call_method(stream->source,MS_FILTER_SET_MOBILE,&mobile_call_mode);
-		}	
+		}
 
 		stream->ms.udpsend = ms_filter_new (MS_UDP_SEND_ID);
 		if(stream->ms.udpsend== NULL){
@@ -155,7 +156,7 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
 		memset(&udp_conf,'\0',sizeof(udp_config_t));
 		udp_conf.remote_port = rem_port;
 		udp_conf.cur_socket = -1;
-		udp_conf.c_type = VIDEO_OUTPUT;	
+		udp_conf.c_type = VIDEO_OUTPUT;
 		memset(udp_conf.group_ip,'\0',16);
 		memcpy(udp_conf.remote_ip, rem_ip, 16);
 		ms_filter_call_method(stream->ms.udpsend,MS_UDP_SEND_SET_PARA,&udp_conf);
@@ -180,11 +181,11 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
 		 *
 		 * ****************************************************/
 		MSConnectionHelper ch;
-	
+
 		printf("### %s:%d dir=%s\n", __FUNCTION__, __LINE__, stream->dir==VideoStreamSendRecv?"VideoStreamSendRecv":"VideoStreamRecvOnly");
 		/*to see which codec is really active */
 		printf("### ms_filter_create_decoder: %s\n", "H264");
-	
+
 		/* create decoder first */
 		stream->ms.decoder = ms_filter_create_decoder("H264");
 		if (stream->ms.decoder==NULL){
@@ -193,7 +194,7 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
 			return -1;
 		}
 		ms_filter_set_notify_callback(stream->ms.decoder, event_cb, stream);
-	
+
 		if(!video_from_ipcam)
 		{
 			stream->ms.udprecv = ms_filter_new (MS_UDP_RECV_ID);
@@ -209,7 +210,7 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
 		}
 		else
 			stream->sourceforIPCamStreaming = ms_filter_new(MS_ITC_IPCAM_ID);
-	
+
 		/* need no JPEG writer, hence we need no tee filter */
 		stream->jpegwriter=ms_filter_new(MS_JPEG_WRITER_ID);
 		if (stream->jpegwriter){
@@ -217,7 +218,7 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
 			stream->filewriter = ms_filter_new(MS_FILE_WRITER_ID);
 			stream->itcsinkforfilewriter = ms_filter_new(MS_ITC_SINK_ID);
 			stream->itcsourceforfilewriter = ms_filter_new(MS_ITC_SOURCE_ID);
-		}	 	
+		}
 
         stream->output=ms_filter_new_from_name (stream->display_name);
 
@@ -231,7 +232,7 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
         }
         /* and connect the filters */
 		ms_connection_helper_start (&ch);
-	
+
 		// [udprecv]--pin0--
 		if(!video_from_ipcam)
 			ms_connection_helper_link (&ch,stream->ms.udprecv,-1,0);
@@ -251,7 +252,7 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
             ms_filter_link(stream->av_recorder.audio_input,0,stream->av_recorder.recorder,1);
             ms_filter_call_method(stream->itcsink,MS_ITC_SINK_CONNECT,stream->av_recorder.video_input);
         }
-		
+
 		ms_connection_helper_link (&ch,stream->ms.decoder,0,0);
 		if (stream->tee2){
 			// [udprecv]--pin0--[decoder]--pin0--[tee2]--pin0--
@@ -262,14 +263,14 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
 			ms_filter_link(stream->jpegwriter,0,stream->itcsinkforfilewriter,0);
 			ms_filter_link(stream->itcsourceforfilewriter,0,stream->filewriter,0);
 			ms_filter_call_method(stream->itcsinkforfilewriter,MS_ITC_SINK_CONNECT,stream->itcsourceforfilewriter);
-	
+
 		}
 		ms_connection_helper_link (&ch,stream->output,0,-1);
 		/* the video source must be send for preview , if it exists*/
 
 		video_stream_set_recorder_video_codec(stream, "H264");
 	}
-	
+
 	/* create the ticker */
 	stream->ms.sessions.ticker = ms_ticker_new();
 	ms_ticker_set_name(stream->ms.sessions.ticker,"Video MSTicker");
@@ -279,10 +280,10 @@ static int video_stream_udp_start_with_source (VideoStream *stream, const char *
 		stream->tickerforfilewriter =  ms_ticker_new();
 		ms_ticker_set_name(stream->tickerforfilewriter,"FileWriter MSTicker");
 	}
-	
+
 	/* attach the graphs */
 	if (stream->source)
-		ms_ticker_attach (stream->ms.sessions.ticker, stream->source);	  
+		ms_ticker_attach (stream->ms.sessions.ticker, stream->source);
 	if (stream->ms.udprecv && !video_from_ipcam)
 		ms_ticker_attach (stream->ms.sessions.ticker, stream->ms.udprecv);
 	else if (stream->sourceforIPCamStreaming)
@@ -355,7 +356,7 @@ static void audio_stream_udp_free(AudioStream *stream) {
     if (stream->ms.encoder!=NULL) ms_filter_destroy(stream->ms.encoder);
     if (stream->ms.decoder!=NULL) ms_filter_destroy(stream->ms.decoder);
     if (stream->ms.qi) ms_quality_indicator_destroy(stream->ms.qi);
-	
+
     if (stream->soundread!=NULL) ms_filter_destroy(stream->soundread);
     if (stream->soundwrite!=NULL) ms_filter_destroy(stream->soundwrite);
     if (stream->dtmfgen!=NULL) ms_filter_destroy(stream->dtmfgen);
@@ -440,7 +441,7 @@ video_stream_udp_stop (VideoStream * stream)
                     if (rstate!=MSRecorderClosed){
                         ms_filter_call_method_noarg(stream->av_recorder.recorder, MS_RECORDER_CLOSE);
                     }
-                }	
+                }
                 ms_filter_call_method(stream->itcsink,MS_ITC_SINK_CONNECT,NULL);
             }
             ms_connection_helper_unlink (&h,stream->ms.decoder,0,0);
@@ -487,7 +488,7 @@ AudioStream *audio_stream_udp_new(int loc_port, bool_t ipv6)
 #ifdef PURE_WAV_RECORD
     stream->a_recorder.itcsink = ms_filter_new(MS_ITC_SINK_ID);
     if(stream->a_recorder.itcsink){
-        int encode_type = 1;//HX : PCM wav file  
+        int encode_type = 1;//HX : PCM wav file
         stream->a_recorder.tee = ms_filter_new(MS_TEE_ID);
         stream->a_recorder.audio_input = ms_filter_new(MS_ITC_SOURCE_ID);
         stream->a_recorder.recorder = ms_filter_new(MS_FILE_REC_ID);
@@ -506,9 +507,9 @@ static void configure_itc(AudioStream *stream, LinphoneAudioStreamFlow select_fl
         if(select_flow == AudioFromUdpRecv)
             pinfmt.fmt=ms_factory_get_audio_format(ms_factory_get_fallback(),"PCM", 8000, 1, NULL);
         if(select_flow == AudioFromSoundRead)
-            pinfmt.fmt=ms_factory_get_audio_format(ms_factory_get_fallback(),"A_PCM", 8000, 1, NULL);    
+            pinfmt.fmt=ms_factory_get_audio_format(ms_factory_get_fallback(),"A_PCM", 8000, 1, NULL);
         ms_filter_call_method(stream->itcsink,MS_FILTER_SET_INPUT_FMT,&pinfmt);
-        
+
         ms_message("configure_itc(): format set to %s",ms_fmt_descriptor_to_string(pinfmt.fmt));
     }
 }
@@ -520,7 +521,7 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     MSConnectionHelper h;
 	int cur_socket = -1;
 	udp_config_t udp_conf;
-    
+
     stream->ms.udprecv=ms_filter_new(MS_UDP_RECV_ID);
 	if(stream->ms.udprecv == NULL){
 		ms_error("mediastream.c: No filter available for payload %s.","AUDIO MS_UDP_RECV_ID");
@@ -531,9 +532,9 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
 	udp_conf.cur_socket = -1;
 	udp_conf.c_type = AUDIO_INPUT;
 	ms_filter_call_method(stream->ms.udprecv,MS_UDP_RECV_SET_PARA,&udp_conf);
-	
+
 	//ms_filter_call_method(stream->ms.udprecv,MS_UDP_RECV_GET_SOCKET,&cur_socket);
-	//if(cur_socket == -1){		
+	//if(cur_socket == -1){
 	//	ms_error("audio_stream_udp_start_full: INVALID SOCKET.");
 	//	return -1;
 	//}
@@ -542,18 +543,22 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
 		memset(&udp_conf,'\0',sizeof(udp_config_t));
 		udp_conf.remote_port = stream->ms.udp_port;
 		udp_conf.cur_socket = cur_socket;
-		udp_conf.c_type = AUDIO_OUTPUT;	
+		udp_conf.c_type = AUDIO_OUTPUT;
 		memset(udp_conf.group_ip,'\0',16);
 		memcpy(udp_conf.remote_ip,rem_ip,16);
 		ms_filter_call_method(stream->ms.udpsend,MS_UDP_SEND_SET_PARA,&udp_conf);
 	}
-    
-    Castor3snd_reinit_for_diff_rate(CFG_AUDIO_SAMPLING_RATE,16);//check if IIS need reinited or not (sampling rate ,bitsize) 
+
+    Castor3snd_reinit_for_diff_rate(CFG_AUDIO_SAMPLING_RATE,16);//check if IIS need reinited or not (sampling rate ,bitsize)
     if (captcard!=NULL) stream->soundread=ms_snd_card_create_reader(captcard);
     if (playcard!=NULL) stream->soundwrite=ms_snd_card_create_writer(playcard);
 
     // stream->ms.encoder=ms_filter_create_encoder("PCMU");
     // stream->ms.decoder=ms_filter_create_decoder("PCMU");
+	if (theConfig.protocol != PROTOCOL_BZ) {
+		stream->ms.encoder=ms_filter_new(MS_ADPCM_ENC_ID); //PCMU換成ADPCM filter
+		stream->ms.decoder=ms_filter_new(MS_ADPCM_DEC_ID); //PCMU換成ADPCM filter
+	}
     if(stream->use_mix)
         stream->mixvoice=ms_filter_new(MS_MIXVOICE_ID);
     if(stream->use_volsend)
@@ -563,7 +568,7 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
 #if 0
     stream->webrtcagc=ms_filter_new(MS_FILTER_AGC_ID);
 #endif
-	
+
     /*create the equalizer*/
     if (stream->eq_SPK && CFG_AUDIO_SAMPLING_RATE == 8000)
         stream->equalizerSPK=ms_filter_new(MS_EQUALIZER_ID);
@@ -656,7 +661,7 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
 #endif
     ms_ticker_attach(stream->ms.sessions.ticker,stream->soundread);
     ms_ticker_attach(stream->ms.sessions.ticker,stream->ms.udprecv);
-	
+
     stream->ms.start_time=ms_time(NULL);
     stream->ms.is_beginning=TRUE;
 
@@ -672,7 +677,7 @@ Taichanstream *taichan_audio_stream_udp_new(int loc_port, bool_t ipv6)
 {
 	Taichanstream *stream=(Taichanstream *)ms_new0(Taichanstream,1);
     MSFilterDesc *ec_desc=ms_filter_lookup_by_name("MSOslec");
-    
+
     ms_filter_enable_statistics(TRUE);
     ms_filter_reset_statistics();
 
@@ -681,7 +686,7 @@ Taichanstream *taichan_audio_stream_udp_new(int loc_port, bool_t ipv6)
     stream->ms.udpsend=ms_filter_new(MS_UDP_SEND_ID);
 
 	stream->ms.udp_port = loc_port;
-    
+
     return stream;
 }
 
@@ -696,13 +701,13 @@ int taichan_audio_stream_udp_start_full(Taichanstream *stream, const char *rem_i
 		memset(&udp_conf,'\0',sizeof(udp_config_t));
 		udp_conf.remote_port = stream->ms.udp_port;
 		udp_conf.cur_socket = cur_socket;
-		udp_conf.c_type = AUDIO_OUTPUT;	
+		udp_conf.c_type = AUDIO_OUTPUT;
 		memset(udp_conf.group_ip,'\0',16);
 		memcpy(udp_conf.remote_ip,rem_ip,16);
 		ms_filter_call_method(stream->ms.udpsend,MS_UDP_SEND_SET_PARA,&udp_conf);
 	}
 
-    //Castor3snd_reinit_for_diff_rate(CFG_AUDIO_SAMPLING_RATE,16);//check if IIS need reinited or not (sampling rate ,bitsize) 
+    //Castor3snd_reinit_for_diff_rate(CFG_AUDIO_SAMPLING_RATE,16);//check if IIS need reinited or not (sampling rate ,bitsize)
     if (captcard!=NULL){
         stream->soundread=ms_snd_card_create_reader(captcard);
     }else{
@@ -714,13 +719,13 @@ int taichan_audio_stream_udp_start_full(Taichanstream *stream, const char *rem_i
 		ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_OPEN,(void*)file);
         ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_SET_SPECIAL_CASE,&special_case);
 		ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_LOOP,&interval);
-        ms_filter_call_method_noarg(stream->soundread,MS_FILE_PLAYER_START);   
+        ms_filter_call_method_noarg(stream->soundread,MS_FILE_PLAYER_START);
     }
-    
+
     if (playcard!=NULL) stream->soundwrite=ms_snd_card_create_writer(playcard);
-	
+
     stream->ms.encoder=ms_filter_create_encoder("PCMU");
-    
+
     /* and then connect all */
     /* tip: draw yourself the picture if you don't understand */
 
@@ -743,18 +748,18 @@ int taichan_audio_stream_udp_start_full(Taichanstream *stream, const char *rem_i
     stream->ms.start_time=ms_time(NULL);
     stream->ms.is_beginning=TRUE;
 
-    return 0;    
+    return 0;
 }
 
 static void taichan_audio_stream_udp_free(Taichanstream *stream) {
-    
+
     if (stream->ms.udpsend!=NULL) ms_filter_destroy(stream->ms.udpsend);
     if (stream->ms.encoder!=NULL) ms_filter_destroy(stream->ms.encoder);
     if (stream->ms.qi) ms_quality_indicator_destroy(stream->ms.qi);
     if (stream->soundread!=NULL) ms_filter_destroy(stream->soundread);
-	
+
     if (stream->ms.sessions.ticker!=NULL) ms_ticker_destroy(stream->ms.sessions.ticker);
-    
+
     ms_free(stream);
 }
 
@@ -782,7 +787,7 @@ void audio_stream_udp_stop(AudioStream * stream, LinphoneAudioStreamFlow select_
         ms_ticker_detach(stream->ms.sessions.ticker,stream->soundread);
         ms_ticker_detach(stream->ms.sessions.ticker,stream->ms.udprecv);
 #ifdef PURE_WAV_RECORD
-        ms_ticker_detach(stream->a_recorder.ticker, stream->a_recorder.recorder);        
+        ms_ticker_detach(stream->a_recorder.ticker, stream->a_recorder.recorder);
 #endif
         //rtp_stats_display(rtp_session_get_stats(stream->ms.sessions.rtp_session),"Audio session's RTP statistics");
 
@@ -824,19 +829,19 @@ void audio_stream_udp_stop(AudioStream * stream, LinphoneAudioStreamFlow select_
             audio_mkv_rec_graph_unlink(&h,stream);
 #else
             audio_mkv_rec_graph_unlink(&h,stream);
-#endif  
+#endif
         if (stream->ms.decoder)
             ms_connection_helper_unlink(&h,stream->ms.decoder,0,0);
 #ifdef PURE_WAV_RECORD
         if(select_flow == AudioFromUdpRecv)
             audio_pure_wav_record_graph_unlink(&h,stream);
-#endif        
+#endif
         if (stream->dtmfgen!=NULL)
             ms_connection_helper_unlink(&h,stream->dtmfgen,0,0);
         if (stream->volrecv!=NULL)
             ms_connection_helper_unlink(&h,stream->volrecv,0,0);
         if (stream->mixvoice!=NULL)
-            ms_connection_helper_unlink(&h,stream->mixvoice,0,0);        
+            ms_connection_helper_unlink(&h,stream->mixvoice,0,0);
         if (stream->equalizerSPK!=NULL)
             ms_connection_helper_unlink(&h,stream->equalizerSPK,0,0);
         if (stream->ec!=NULL)
@@ -855,19 +860,19 @@ void audio_stream_post_configure(AudioStream *stream, bool_t mic_muted,dictionar
 //	float recv_gain=(float)CFG_SPEAKER_GAIN;
     float mic_gain,recv_gain;
     mic_gain=atof(iniparser_getstring(inicfg , "Esound:mic_gain", CFG_MIC_GAIN));
-	recv_gain=atof(iniparser_getstring(inicfg , "Esound:spk_gain", CFG_SPEAKER_GAIN));  
-    
-    if (stream->volsend){      
+	recv_gain=atof(iniparser_getstring(inicfg , "Esound:spk_gain", CFG_SPEAKER_GAIN));
+
+    if (stream->volsend){
         //float mic_gain = iniparser_getint(inicfg , "sound:mic_gain", CFG_MIC_GAIN);
         float speed = 0.03;
         float force = 25;
-        float thres = -1;        
+        float thres = -1;
         float transmit_thres = -1;
         float ng_floorgain = 0;
         float ng_thres = 0.05;
         int dc_removal = -1;
         int sustain = -1;
-   
+
         if (stream->use_ng){
             //float coef = (float)CFG_NOISE_GATE_THRESHOLD;
             float coef = atof(iniparser_getstring(inicfg , "Esound:ngcoef", CFG_NOISE_GATE_THRESHOLD));
@@ -877,19 +882,19 @@ void audio_stream_post_configure(AudioStream *stream, bool_t mic_muted,dictionar
         if (stream->use_agc)
             ms_filter_call_method(stream->volsend,MS_VOLUME_ENABLE_AGC,&stream->use_agc);
         if (mic_gain)
-            ms_filter_call_method(stream->volsend,MS_VOLUME_SET_GAIN,&mic_gain); 
+            ms_filter_call_method(stream->volsend,MS_VOLUME_SET_GAIN,&mic_gain);
         if (dc_removal!=-1)
             ms_filter_call_method(stream->volsend,MS_VOLUME_REMOVE_DC,&dc_removal);
         if (speed!=-1)
             ms_filter_call_method(stream->volsend,MS_VOLUME_SET_EA_SPEED,&speed);
         if (force!=-1)
-            ms_filter_call_method(stream->volsend,MS_VOLUME_SET_EA_FORCE,&force); 
+            ms_filter_call_method(stream->volsend,MS_VOLUME_SET_EA_FORCE,&force);
         if (thres!=-1)
             ms_filter_call_method(stream->volsend,MS_VOLUME_SET_EA_THRESHOLD,&thres);
         if (sustain!=-1)
             ms_filter_call_method(stream->volsend,MS_VOLUME_SET_EA_SUSTAIN,&sustain);
         if (transmit_thres!=-1)
-            ms_filter_call_method(stream->volsend,MS_VOLUME_SET_EA_TRANSMIT_THRESHOLD,&transmit_thres); 
+            ms_filter_call_method(stream->volsend,MS_VOLUME_SET_EA_TRANSMIT_THRESHOLD,&transmit_thres);
         if (ng_thres!=-1)
             ms_filter_call_method(stream->volsend,MS_VOLUME_SET_NOISE_GATE_THRESHOLD,&ng_thres);
         if (ng_floorgain!=-1)
@@ -899,20 +904,20 @@ void audio_stream_post_configure(AudioStream *stream, bool_t mic_muted,dictionar
         if (mic_muted){
             int scilent = -1;
             ms_filter_call_method(stream->volsend,MS_VOLUME_SET_GAIN,&scilent);
-        }            
+        }
     }
 
     if (stream->volrecv){
         //float mic_gain = (float)CFG_MIC_GAIN;
-        //float recv_gain = (float)CFG_SPEAKER_GAIN;        
+        //float recv_gain = (float)CFG_SPEAKER_GAIN;
         float ng_thres = 0.05;
         float floorgain;
-        bool_t ng = FALSE;//if needed ,filter some recv noise 
+        bool_t ng = FALSE;//if needed ,filter some recv noise
         int spk_agc = -1;
         if (mic_gain == 0)
             mic_gain = -1;
         floorgain = 1 / mic_gain;
-        
+
         if (recv_gain != 0)
             ms_filter_call_method(stream->volrecv,MS_VOLUME_SET_DB_GAIN,&recv_gain);
         if (spk_agc != -1)
@@ -934,9 +939,9 @@ void audio_stream_post_configure(AudioStream *stream, bool_t mic_muted,dictionar
         //const char *SPKgains=lp_config_get_string(lc->config,"sound","eq_SPKgains",NULL);
 		//char *SPKgains=CFG_EQUALIZER_SPKGAIN_SET;
         char *SPKgains=iniparser_getstring(inicfg , "Esound:eq_SPKgains", CFG_EQUALIZER_SPKGAIN_SET);
-        
-        ms_filter_call_method(stream->equalizerSPK,MS_EQUALIZER_SET_ACTIVE,&stream->equalizerSPK);          
-        
+
+        ms_filter_call_method(stream->equalizerSPK,MS_EQUALIZER_SET_ACTIVE,&stream->equalizerSPK);
+
         if (SPKgains){
             do{
                 int bytes;
@@ -955,9 +960,9 @@ void audio_stream_post_configure(AudioStream *stream, bool_t mic_muted,dictionar
         //const char *MICgains=lp_config_get_string(lc->config,"sound","eq_MICgains",NULL);
 		//const char *MICgains=CFG_EQUALIZER_MICGAIN_SET;
         char *MICgains=iniparser_getstring(inicfg , "Esound:eq_MICgains", CFG_EQUALIZER_MICGAIN_SET);
-        
-        ms_filter_call_method(stream->equalizerMIC,MS_EQUALIZER_SET_ACTIVE,&stream->eq_MIC);        
-        
+
+        ms_filter_call_method(stream->equalizerMIC,MS_EQUALIZER_SET_ACTIVE,&stream->eq_MIC);
+
         if (MICgains){
             do{
                 int bytes;
@@ -970,13 +975,13 @@ void audio_stream_post_configure(AudioStream *stream, bool_t mic_muted,dictionar
             }while(1);
         }
     }
-    
+
     if (stream->ec){
         //int aec_delay=lp_config_get_int(lc->config,SOUND,"ecdelay",(int)CFG_AEC_DELAY_MS);
         int aec_delay=iniparser_getint( inicfg, "Esound:ecdelay",(int)CFG_AEC_DELAY_MS);
         ms_filter_call_method(stream->ec,MS_ECHO_CANCELLER_SET_DELAY,&aec_delay);
-    }    
-    
+    }
+
 }
 
 void video_stream_set_recorder_audio_codec(VideoStream *stream) {
