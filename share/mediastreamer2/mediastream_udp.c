@@ -479,11 +479,11 @@ AudioStream *audio_stream_udp_new(int loc_port, bool_t ipv6)
     /*
      * In practice, these filters are needed only for audio+video recording.
      */
-    if (ms_factory_lookup_filter_by_id(ms_factory_get_fallback(), MS_MKV_RECORDER_ID)){
-        stream->itcsink=ms_filter_new(MS_ITC_SINK_ID);
-        if (stream->itcsink)
-            stream->teeforrecord=ms_filter_new(MS_TEE_ID);
-    }
+//    if (ms_factory_lookup_filter_by_id(ms_factory_get_fallback(), MS_MKV_RECORDER_ID)){
+//        stream->itcsink=ms_filter_new(MS_ITC_SINK_ID);
+//        if (stream->itcsink)
+//            stream->teeforrecord=ms_filter_new(MS_TEE_ID);
+//    }
 #endif
 #ifdef PURE_WAV_RECORD
     stream->a_recorder.itcsink = ms_filter_new(MS_ITC_SINK_ID);
@@ -1021,8 +1021,8 @@ void audio_stream_udp_link_audio_record(AudioStream *a_stream){
     if (NULL == a_stream)
         return;
 
-    if (a_stream->a_recorder.audio_input && a_stream->itcsink){
-        ms_filter_call_method(a_stream->itcsink,MS_ITC_SINK_CONNECT,a_stream->a_recorder.audio_input);
+    if (a_stream->a_recorder.audio_input && a_stream->a_recorder.itcsink){
+        ms_filter_call_method(a_stream->a_recorder.itcsink,MS_ITC_SINK_CONNECT,a_stream->a_recorder.audio_input);
     }
 }
 
@@ -1030,8 +1030,8 @@ void audio_stream_udp_unlink_audio_record(AudioStream *a_stream){
     if (NULL == a_stream)
         return;
 
-    if (a_stream->a_recorder.audio_input && a_stream->itcsink){
-        ms_filter_call_method(a_stream->itcsink,MS_ITC_SINK_CONNECT,NULL);
+    if (a_stream->a_recorder.audio_input && a_stream->a_recorder.itcsink){
+        ms_filter_call_method(a_stream->a_recorder.itcsink,MS_ITC_SINK_CONNECT,NULL);
     }
 }
 

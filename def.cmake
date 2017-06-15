@@ -193,6 +193,12 @@ if (DEFINED CFG_WATCHDOG_ENABLE)
             -DCFG_WATCHDOG_INTR
         )
     endif()
+    
+    if (DEFINED CFG_WATCHDOG_IDLETASK)
+        add_definitions(
+            -DCFG_WATCHDOG_IDLETASK
+        )
+    endif()
 endif()
 
 if (DEFINED CFG_MEMDBG_ENABLE)

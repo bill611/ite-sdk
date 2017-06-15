@@ -148,13 +148,10 @@ static void _resetDevice(void)
 
 static uint16_t _getTouchKey(void)
 {
-	uint8_t		page = 0x60;
 	uint16_t	KeyValue;
 	unsigned int result = 0;
 	uint8_t		buf[2]={0};
 	uint8_t 	cmd;
-	uint32_t	regData1,regData2;
-	uint32_t	reg32, cnt=0;
 
 
 	cmd = CBM7110_REG_KEYFIFO;
@@ -171,7 +168,7 @@ static uint16_t _getTouchKey(void)
 		return 0;
 	}
 
-	result = mmpIicReceiveData(g_kpI2cPort, IIC_MASTER_MODE, CBM7110_IIC_ADDR, buf, 2, &cmd, 1);
+	result = mmpIicReceiveData(g_kpI2cPort, IIC_MASTER_MODE, CBM7110_IIC_ADDR, &cmd, 1, buf, 2);
 	if(result <= 0) 
 		goto get_touch_key_end;
 
@@ -248,7 +245,12 @@ int itpKeypadProbe(void)
 			gTocuhDown = 0;
 			gLastIndex = 0xFF;
 		}
+	} else {
+		gTocuhDown = 0;
+		gLastIndex = 0xFF;
+		return -1;
 	}
+
 	pthread_mutex_unlock(&keypad_mutex);
 
 	index = _tanslateTouchValue(value, gTotalTouchKeyNum);
@@ -256,6 +258,8 @@ int itpKeypadProbe(void)
 		return -1;
 
 	if(!kpIntr) {
+		if(gTocuhDown && gLastIndex == index)
+			return -1;
 		gTocuhDown = 1;
 		gLastIndex = index;
 	}

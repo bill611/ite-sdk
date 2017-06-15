@@ -431,6 +431,27 @@ config WATCHDOG_INTR
     help_chs
         是否使用中断，如果启用这个功能，当 Watch dog 在 time out 之后，会呼叫一个特定程序来处理。
 
+config WATCHDOG_IDLETASK
+    bool "Restart Watch Dog from idle task"
+    depends on WATCHDOG_ENABLE
+    default n
+    help
+        Restart Watch Dog from idle task or not.
+    help_cht
+        是否從Idle Task中重設 Watch dog。
+    help_chs
+        是否从Idle Task中重设 Watch dog。
+
+config EXT_WATCHDOG_ENABLE
+    bool "Use External Watch Dog Chip enable"
+    default n
+    help
+        Enable External Watch Dog or not.
+    help_cht
+        啟用 外部 Watch Dog 功能。如果此功能啟用，當系統一段時間沒有反應之後，會自動重啟。反應時間由 watchdog timeout 參數決定。
+    help_chs
+        启用 外部 Watch Dog 功能。如果此功能启用，当系统一段时间没有反应之後，会自动重启。反应时间由 watchdog timeout 参数决定。
+
 menu "Internal Settings"
     hidden if DEV_DEVELOP
 

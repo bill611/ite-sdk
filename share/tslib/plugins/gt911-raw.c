@@ -66,7 +66,7 @@
 #define	TP_SCREEN_HEIGHT	480
 #endif
 
-#define TP_SAMPLE_RATE	(1)
+#define TP_SAMPLE_RATE	(8)
 
 #define	TOUCH_NO_CONTACT		(0)
 #define	TOUCH_DOWN				(1)
@@ -136,8 +136,9 @@
 #define GTP_ADDR_LENGTH       2
 #define CFG_GROUP_LEN(p_cfg_grp)  (sizeof(p_cfg_grp) / sizeof(p_cfg_grp[0]))
 
+//  0x47 0x48 0x49 0x4A 0x4B 0x4C 0x4D 0x4E 0x4F 0x50
 #define CTP_CFG_GROUP	{\
-	0x41,0x00,0x04,0x58,0x02,0x0A,0x3d,0x00,0x01,0x08,\
+	0x41,0x00,0x04,0x58,0x02,0x0A,0x3c,0x00,0x01,0x08,\
 	0x28,0x05,0x50,0x32,0x03,0x05,0x00,0x00,0x00,0x00,\
 	0x00,0x00,0x00,0x1A,0x1C,0x1E,0x14,0x8C,0x2E,0x0E,\
 	0x2D,0x2A,0x56,0x09,0x00,0x00,0x00,0x81,0x03,0x1C,\
@@ -289,11 +290,11 @@ static void _tpGpioOutPut(int port,int value)
 {
 	ithGpioSetMode(port,ITH_GPIO_MODE0);
 	ithGpioSetOut(port);
-	if (value) 
-		ithGpioSet(port); 
-	else 
-		ithGpioClear(port); 
-	ithGpioEnable(port); 
+	if (value)
+		ithGpioSet(port);
+	else
+		ithGpioClear(port);
+	ithGpioEnable(port);
 }
 static void _tpGpioInPut(int port)
 {
@@ -313,7 +314,7 @@ static void _tpInitSpec_vendor(void)
 	gTpSpec.tpWakeUpPin         = (char)TP_GPIO_PIN_NO_DEF;   //from Kconfig setting
 	gTpSpec.tpResetPin          = (char)TP_GPIO_RESET_PIN;    //from Kconfig setting
 	gTpSpec.tpIntUseIsr         = (char)TP_ENABLE_INTERRUPT;  //from Kconfig setting
-	gTpSpec.tpIntActiveState    = (char)TP_ACTIVE_LOW;        //from Kconfig setting
+	gTpSpec.tpIntActiveState    = (char)TP_ACTIVE_HIGH;        //from Kconfig setting
 	gTpSpec.tpIntTriggerType    = (char)TP_INT_EDGE_TRIGGER; //from Kconfig setting   level/edge
 
 	gTpSpec.tpInterface         = (char)TP_INTERFACE_I2C;	  //from Kconfig setting
@@ -378,13 +379,13 @@ static void _tpInitSpec_vendor(void)
 	   printf("gTpInfo.tpNeedToGetSample      = %x\n",gTpInfo.tpNeedToGetSample);
 	   printf("gTpInfo.tpNeedUpdateSample     = %x\n",gTpInfo.tpNeedUpdateSample);
 	   printf("gTpInfo.tpFirstSampHasSend     = %x\n",gTpInfo.tpFirstSampHasSend);
-	   printf("gTpInfo.tpFirstSampHasSend     = %x\n",gTpInfo.tpIsInitFinished);
+	   printf("gTpInfo.tpIsInitFinished     = %x\n",gTpInfo.tpIsInitFinished);
 	   printf("gTpInfo.tpIntr4Probe           = %x\n",gTpInfo.tpIntr4Probe);
 	   printf("gTpInfo.tpDevFd                = %x\n",gTpInfo.tpDevFd);
 	   printf("gTpInfo.tpIntrCnt              = %x\n",gTpInfo.tpIntrCnt);
 	   */
 }
- 
+
 void gtp_reset_guitar(int ms)
 {
 	_tpGpioOutPut(gTpSpec.tpResetPin, 0);   // begin select I2C slave addr
@@ -420,7 +421,7 @@ bool gtp_i2c_read(  uint8_t* cmd, uint8_t *buf, uint32_t len)
 
 	while (retries < 5) {
 		i2cret = read(gTpInfo.tpDevFd, ft5306_evt, 1);
-		if (i2cret == len)	
+		if (i2cret == len)
 			break;
 		retries++;
 	}
@@ -444,7 +445,7 @@ bool gtp_i2c_write( uint8_t* cmd, uint32_t cmdlen)
 	ft5306_evt->cmdBufferSize  = cmdlen;
 	while (retries < 5) {
 		i2cret = write(gTpInfo.tpDevFd, ft5306_evt, 1);
-		if (i2cret == cmdlen)	
+		if (i2cret == cmdlen)
 			break;
 		retries++;
 	}
@@ -467,7 +468,7 @@ static int _tpReadPointBuffer_vendor(unsigned char *buf, int cnt)
 		printf("I2C transfer error. errno:%d\n ", ret);
 		goto end;
 	}
-	if((buf[0] & 0x80) == 0) 
+	if((buf[0] & 0x80) == 0)
 		goto end;
 
 	uint8_t touch_num = buf[0] & 0x0f;
@@ -478,7 +479,7 @@ static int _tpReadPointBuffer_vendor(unsigned char *buf, int cnt)
 	recv = 1;
 
 exit_work_func:
-	if (gtp_i2c_write(cmd_read_end,3) < 0) 
+	if (gtp_i2c_write(cmd_read_end,3) < 0)
 		printf("I2C write cmd_read_end  error!");
 
 end:
@@ -487,18 +488,19 @@ end:
 
 static int _tpParseRawPxy_vendor(struct ts_sample *s, unsigned char *buf)
 {
-	if(gTpInfo.tpStatus==TOUCH_DOWN ) {
-		s->x = (int)0;
-		s->y = (int)0;
-		s->pressure = 0;		//?? how to get ft5xxx's presure?
-	} else {
+	// if(gTpInfo.tpStatus==TOUCH_DOWN ) {
+		// s->x = (int)0;
+		// s->y = (int)0;
+		// s->pressure = 0;		//?? how to get ft5xxx's presure?
+		// printf("pressure\n");
+	// } else {
 		s->x = (((unsigned int)buf[1]<<8) |buf[0]);
-		s->y = (((unsigned int)buf[3]<<8) |buf[2]); 
+		s->y = (((unsigned int)buf[3]<<8) |buf[2]);
 		s->pressure = 1;		//?? how to get gt911's presure?
 		// s->x = (int)((((unsigned int)buf[3]<<8)&0x0F00) | ((unsigned int)buf[4]));
 		// s->y = (int)((((unsigned int)buf[5]<<8)&0x0F00) | ((unsigned int)buf[6]));
 		// s->pressure = 1;			//?? how to get ft5xxx's presure?
-	}
+	// }
 	/*
 	   if( buf[2] || ((buf[3]&0xf0)==0x40) )
 	   {
@@ -572,7 +574,8 @@ static void _tpIntActiveRule_vendor(struct ts_sample *tpSmp)
 			{
 				gTpInfo.tpStatus = TOUCH_UP;
 			}
-			if(gTpInfo.tpFirstSampHasSend)	gTpInfo.tpNeedUpdateSample = 1;
+			if(gTpInfo.tpFirstSampHasSend)
+				gTpInfo.tpNeedUpdateSample = 1;
 			break;
 
 		case TOUCH_UP:
@@ -595,7 +598,9 @@ static void _tpIntActiveRule_vendor(struct ts_sample *tpSmp)
 	}
 
 #ifdef	ENABLE_TOUCH_PANEL_DBG_MSG
-	printf("	tpStatus=%x, NSQ=%x, cINT=%x, send=%x\n", gTpInfo.tpStatus, gTpInfo.tpNeedUpdateSample, gTpInfo.tpIntr4Probe, gTpInfo.tpFirstSampHasSend);
+
+	printf("	tpStatus=%x, NSQ=%x, cINT=%x, send=%x\n",
+			gTpInfo.tpStatus, gTpInfo.tpNeedUpdateSample, gTpInfo.tpIntr4Probe, gTpInfo.tpFirstSampHasSend);
 #endif
 
 	//use this flag to judge if update the touch sample
@@ -630,7 +635,8 @@ static void _tpIntNotActiveRule_vendor(struct ts_sample *tpSmp)
 
 #ifdef	ENABLE_TOUCH_PANEL_DBG_MSG
 	if( (gTpInfo.tpStatus != TOUCH_NO_CONTACT) )
-		printf("	UpdateSmp0:INT=%x, ss=(%d,%d)\n",gTpInfo.tpCurrINT, gTpInfo.tpStatus, gTpInfo.tpFirstSampHasSend);
+		printf("	UpdateSmp0:INT=%x, ss=(%d,%d)\n",
+				gTpInfo.tpCurrINT, gTpInfo.tpStatus, gTpInfo.tpFirstSampHasSend);
 #endif
 
 	//In order to prevent from loss of the first touch event
@@ -653,19 +659,20 @@ static void _tpIntNotActiveRule_vendor(struct ts_sample *tpSmp)
 	{
 		//printf("	UdSmp:s=%d, int=%x, ic=%d\n",gTpInfo.tpStatus,currINT,gTpInfo.tpIntrCnt);
 
-		if(!gTpInfo.tpIntrCnt)	gettimeofday(&T1,NULL);
+		if(!gTpInfo.tpIntrCnt)	
+			gettimeofday(&T1,NULL);
 		gettimeofday(&T2,NULL);
 		dur = (unsigned int)itpTimevalDiff(&T1, &T2);
 
-		if( dur>gTpSpec.tpSampleRate && gTpInfo.tpFirstSampHasSend )
+		if( dur > gTpSpec.tpSampleRate && gTpInfo.tpFirstSampHasSend )
 		{
 			gTpInfo.tpStatus = TOUCH_UP;
 			gTpInfo.tpIntr4Probe = 0;
 			_tpUpdateLastXY(NULL);
 
-#ifdef	ENABLE_TOUCH_PANEL_DBG_MSG
+// #ifdef	ENABLE_TOUCH_PANEL_DBG_MSG
 			printf("INT=0, and dur%d>%dms, so force to set status=2!!\n",dur,gTpSpec.tpSampleRate);
-#endif
+// #endif
 
 			gettimeofday(&startT,NULL);
 		}
@@ -922,7 +929,8 @@ static void _tpConvertRawPoint(struct ts_sample *samp, int nr)
 		*/
 
 #ifdef	ENABLE_TOUCH_PANEL_DBG_MSG
-		printf("	cvtPXY->--------> %d %d %d\n", s->pressure, s->x, s->y);
+		printf("	cvtPXY->--------> %d %d %d\n", 
+				s->pressure, s->x, s->y);
 #endif
 
 		s++;
@@ -957,8 +965,11 @@ static void _tpUpdateLastXY(struct ts_sample *smp)
 	}
 
 #ifdef	ENABLE_TOUCH_PANEL_DBG_MSG
-	if(smp!=NULL)	printf("	EnQue:p=%x,xy=%d,%d\n", smp->pressure, smp->x, smp->y);
-	else            printf("	EnQue:p=%x,xy=%d,%d\n", 0, 0, 0);
+	if(smp!=NULL)	
+		printf("	EnQue:p=%x,xy=%d,%d\n", 
+			smp->pressure, smp->x, smp->y);
+	else       
+   		printf("	EnQue:p=%x,xy=%d,%d\n", 0, 0, 0);
 #endif
 	pthread_mutex_unlock(&gTpMutex);
 }
@@ -1019,7 +1030,8 @@ static void _tpUpdate(struct ts_sample *tpSmp)
 
 #ifdef	ENABLE_TOUCH_PANEL_DBG_MSG
 	if(gTpInfo.tpStatus != TOUCH_NO_CONTACT)
-		printf("	UpdateSmp:INT=%x, s=%x pxy=(%d,%d,%d)\n",gTpInfo.tpCurrINT, gTpInfo.tpStatus, tpSmp->pressure,tpSmp->x,tpSmp->y);
+		printf("	UpdateSmp:INT=%x, s=%x pxy=(%d,%d,%d)\n",
+				gTpInfo.tpCurrINT, gTpInfo.tpStatus, tpSmp->pressure,tpSmp->x,tpSmp->y);
 #endif
 
 	if(gTpInfo.tpCurrINT)
@@ -1208,12 +1220,14 @@ static int _tpProbeSample(struct ts_sample *samp, int nr)
 		{
 			memcpy((void *)s,(void *)&g_sample, sizeof(struct ts_sample));
 			gettimeofday(&s->tv,NULL);
-			if(s->pressure)	gTpInfo.tpFirstSampHasSend = 1;
+			if(s->pressure)	
+				gTpInfo.tpFirstSampHasSend = 1;
 		}
 	}
 
 #ifdef	ENABLE_TOUCH_PANEL_DBG_MSG
-	printf("gfQ, r=%x, INT=%x, s=%x, pxy=(%d,%d,%d)\n", ret, gTpInfo.tpIntr4Probe, gTpInfo.tpStatus, s->pressure, s->x, s->y);
+	printf("gfQ, r=%x, INT=%x, s=%x, pxy=(%d,%d,%d)\n", 
+			ret, gTpInfo.tpIntr4Probe, gTpInfo.tpStatus, s->pressure, s->x, s->y);
 #endif
 
 	pthread_mutex_unlock(&gTpMutex);
@@ -1294,7 +1308,8 @@ static int ft5xxx_read(struct tslib_module_info *inf, struct ts_sample *samp, in
 	ret = _tpProbeSample(samp, nr);
 
 #ifdef	ENABLE_TOUCH_PANEL_DBG_MSG
-	if(ret)	printf("	deQue-O:%x=(%d,%d,%d)r=%d\n", samp, samp->pressure, samp->x, samp->y, ret);
+	if(ret)	printf("	deQue-O:%x=(%d,%d,%d)r=%d\n", 
+			samp, samp->pressure, samp->x, samp->y, ret);
 #endif
 
 	return nr;

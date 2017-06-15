@@ -13,7 +13,9 @@
 
 static bool wdEnabled;
 
-#if CFG_WATCHDOG_REFRESH_INTERVAL > 0
+#ifdef CFG_WATCHDOG_IDLETASK
+static uint32_t wdLastTick;
+#endif
 
 static void WatchDogRefreshHandler(timer_t timerid, int arg)
 {
@@ -21,6 +23,24 @@ static void WatchDogRefreshHandler(timer_t timerid, int arg)
         ithWatchDogRestart();
 
     //ithPrintf("ithWatchDogRestart(),reload=%d,cnt=%d\n", ithWatchDogGetReload(), ithWatchDogGetCounter());
+    
+    #ifdef	CFG_EXT_WATCHDOG_ENABLE
+	if(ithGpioGet(CFG_GPIO_EXT_WATCHDOG))	
+		ithGpioClear(CFG_GPIO_EXT_WATCHDOG);
+	else	
+		ithGpioSet(CFG_GPIO_EXT_WATCHDOG);
+    #endif 
+}
+
+#ifdef CFG_WATCHDOG_IDLETASK
+
+static void WatchDogIdleRefreshHandler(void)
+{
+    if (itpGetTickDuration(wdLastTick) >= CFG_WATCHDOG_REFRESH_INTERVAL * 1000)
+    {
+        WatchDogRefreshHandler(0, 0);
+        wdLastTick = itpGetTickCount();
+    }
 }
 #endif // CFG_WATCHDOG_REFRESH_INTERVAL > 0
 
@@ -57,14 +77,25 @@ static void WatchDogInit(void)
     //printf("ithWatchDogSetTimeout(),reload=%d,cnt=%d\n", ithWatchDogGetReload(), ithWatchDogGetCounter());
     wdEnabled = false;
     
-#if CFG_WATCHDOG_REFRESH_INTERVAL > 0
+#ifdef	CFG_EXT_WATCHDOG_ENABLE
+	ithGpioSetMode(CFG_GPIO_EXT_WATCHDOG,ITH_GPIO_MODE0);
+   	ithGpioSetOut(CFG_GPIO_EXT_WATCHDOG);
+   	ithGpioSet(CFG_GPIO_EXT_WATCHDOG);    	
+   	ithGpioEnable(CFG_GPIO_EXT_WATCHDOG);
+#endif
+
+#if defined(CFG_WATCHDOG_IDLETASK) && CFG_WATCHDOG_REFRESH_INTERVAL > 0
+
+    itpRegisterIdleHandler(WatchDogIdleRefreshHandler);
+
+#elif CFG_WATCHDOG_REFRESH_INTERVAL > 0
     {
         timer_t timer;
         struct itimerspec value;
         timer_create(CLOCK_REALTIME, NULL, &timer);
         timer_connect(timer, (VOIDFUNCPTR)WatchDogRefreshHandler, 0);
-        value.it_interval.tv_sec = CFG_WATCHDOG_REFRESH_INTERVAL;
-        value.it_interval.tv_nsec = 0;
+        value.it_value.tv_sec = value.it_interval.tv_sec = CFG_WATCHDOG_REFRESH_INTERVAL;
+        value.it_value.tv_nsec = value.it_interval.tv_nsec = 0;
         timer_settime(timer, 0, &value, NULL);
     }
 #endif // CFG_WATCHDOG_REFRESH_INTERVAL > 0
@@ -87,6 +118,10 @@ static int WatchDogIoctl(int file, unsigned long request, void* ptr, void* info)
     case ITP_IOCTL_INIT:
         WatchDogInit();
         break;
+
+	case ITP_IOCTL_RESET:
+		WatchDogRefreshHandler(0, 0);
+		break;
 
     case ITP_IOCTL_ENABLE:
         ithWatchDogRestart();
