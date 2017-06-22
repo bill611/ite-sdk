@@ -385,7 +385,7 @@ config FONT_FILENAME
     help_cht
         系統顯示的字型檔。放在 'data\font' 路徑。
     help_chs
-        系统显示的字型档。放在 'data\font' 路径。
+        系统显示的字型档。放在 'data\font' 路径。已经默认选择2种字体，在project里决定
 
 config WATCHDOG_ENABLE
     bool "Watch Dog enable"
