@@ -14,6 +14,10 @@
 #include "x1_mh/config.h"
 #include "x1_mh/tc_protocol/public.h"
 #endif
+#ifdef TC3000_R1
+#include "r1_mh/config.h"
+#include "r1_mh/tc_protocol/public.h"
+#endif
 #ifdef TC3000_W2
 #include "w2_mh/config.h"
 #include "w2_mh/tc_protocol/public.h"
