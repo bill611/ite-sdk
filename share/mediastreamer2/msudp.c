@@ -289,7 +289,7 @@ static void *video_receive_thread(void *arg)
 					// printf("slen:%04d\n", tcRtpGetVideoLen(buf) );
 				}
 				if (tcRtpGetAudioReady(buf)) {
-					if(blk_tmp_audio == NULL){
+					if(blk_tmp_audio == NULL && audio_senderdata_tmp){
 						blk_tmp_audio = msgb_allocator_alloc(&(audio_senderdata_tmp->allocator),tcRtpGetAudioLen(buf));
 						memcpy(blk_tmp_audio->b_wptr,tcRtpGetAudioData(buf),tcRtpGetAudioLen(buf));
 						blk_tmp_audio->b_wptr += tcRtpGetAudioLen(buf);
