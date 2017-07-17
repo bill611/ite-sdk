@@ -22,6 +22,10 @@
 #include "w2_mh/config.h"
 #include "w2_mh/tc_protocol/public.h"
 #endif
+#ifdef TC3000_W1
+#include "w1_mh/config.h"
+#include "w1_mh/tc_protocol/public.h"
+#endif
 #ifdef TC3000_Z1_CM
 #include "z1_cm_mh/config.h"
 #include "z1_cm_mh/tc_protocol/public.h"
@@ -33,4 +37,8 @@
 #ifdef TC3000_W2_CM
 #include "w2_cm_mh/config.h"
 #include "w2_cm_mh/tc_protocol/public.h"
+#endif
+#ifdef TC3000_W1_CM
+#include "w1_cm_mh/config.h"
+#include "w1_cm_mh/tc_protocol/public.h"
 #endif

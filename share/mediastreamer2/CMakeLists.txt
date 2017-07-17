@@ -37,9 +37,19 @@ if (DEFINED CFG_TC3000_R1)
         -DTC3000_R1
         )
 endif()
+if (DEFINED CFG_TC3000_W1)
+    add_definitions(
+        -DTC3000_W1
+        )
+endif()
 if (DEFINED CFG_TC3000_Z1_CM)
     add_definitions(
 		-DTC3000_Z1_CM
+        )
+endif()
+if (DEFINED CFG_TC3000_W1_CM)
+    add_definitions(
+		-DTC3000_W1_CM
         )
 endif()
 if (DEFINED CFG_TC3000_W2_CM)

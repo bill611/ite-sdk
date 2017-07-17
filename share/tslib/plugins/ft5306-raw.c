@@ -65,7 +65,7 @@
 #define	TP_SCREEN_HEIGHT	480
 #endif
 
-#define TP_SAMPLE_RATE	(16)
+#define TP_SAMPLE_RATE	(30)
 
 #define	TOUCH_NO_CONTACT		(0)
 #define	TOUCH_DOWN				(1)
