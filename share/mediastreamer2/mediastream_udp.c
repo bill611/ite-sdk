@@ -2,6 +2,7 @@
 #include "mediastreamer-config.h"
 #endif
 
+
 #include "mediastreamer2/mediastream.h"
 #include "mediastreamer2/msfilter.h"
 #include "mediastreamer2/msudp.h"
@@ -581,13 +582,13 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
 
     if (stream->write_resampler){
         audio_stream_configure_resampler(stream->write_resampler,stream->ms.udprecv,stream->soundwrite);
+    } 
+    if (stream->soundread && stream->soundwrite && use_ec){
+        printf("set aec\n");
+        ms_filter_call_method(stream->soundread,MS_FILTER_SET_USEAEC,&use_ec);
+        //stream->ec=ms_filter_new(MS_SBC_AEC_ID);
     }
-
-
-    if (stream->ec){
-        hw_engine_init();
-        hw_engine_link_filter(HW_EC_ID, stream->ec);
-    }
+    
     /* and then connect all */
     /* tip: draw yourself the picture if you don't understand */
 
@@ -595,10 +596,10 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     ms_connection_helper_start(&h);
     // [soundread]--pin0--
     ms_connection_helper_link(&h,stream->soundread,-1,0);
-#ifdef TWO_WAY_AUDIORECORD
-    if(select_flow == AudioFromSoundRead)
-        audio_mkv_rec_graph_link(&h,stream,select_flow);
-#endif
+//#ifdef TWO_WAY_AUDIORECORD
+//    if(select_flow == AudioFromSoundRead)
+//        audio_mkv_rec_graph_link(&h,stream,select_flow);
+//#endif
 #ifdef PURE_WAV_RECORD
     if(select_flow == AudioFromSoundRead)
         audio_pure_wav_record_graph_link(&h,stream);
@@ -626,12 +627,12 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     ms_connection_helper_start(&h);
     // [udprecv]--pin0--
     ms_connection_helper_link(&h,stream->ms.udprecv,-1,0);
-#ifdef TWO_WAY_AUDIORECORD
-    if(select_flow == AudioFromUdpRecv)
-        audio_mkv_rec_graph_link(&h,stream,select_flow);
-#else
-        audio_mkv_rec_graph_link(&h,stream,select_flow);
-#endif
+//#ifdef TWO_WAY_AUDIORECORD
+//    if(select_flow == AudioFromUdpRecv)
+//        audio_mkv_rec_graph_link(&h,stream,select_flow);
+//#else
+//        audio_mkv_rec_graph_link(&h,stream,select_flow);
+//#endif
     // [udprecv]--pin0--[decoder]--pin0--
     if(stream->ms.decoder)
         ms_connection_helper_link(&h,stream->ms.decoder,0,0);
@@ -713,12 +714,12 @@ int taichan_audio_stream_udp_start_full(Taichanstream *stream, const char *rem_i
     }else{
         char *file;
         int special_case = 1;
-		int interval = 20000;
-		file = "A:/rings/clicked.wav";
+		//int interval = 20000;
+		//file = "A:/rings/clicked.wav";
         stream->soundread=ms_filter_new(MS_FILE_PLAYER_ID);
-		ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_OPEN,(void*)file);
+		//ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_OPEN,(void*)file);
         ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_SET_SPECIAL_CASE,&special_case);
-		ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_LOOP,&interval);
+		//ms_filter_call_method(stream->soundread,MS_FILE_PLAYER_LOOP,&interval);
         ms_filter_call_method_noarg(stream->soundread,MS_FILE_PLAYER_START);
     }
 
@@ -794,20 +795,18 @@ void audio_stream_udp_stop(AudioStream * stream, LinphoneAudioStreamFlow select_
         /*dismantle the outgoing graph*/
         ms_connection_helper_start(&h);
         ms_connection_helper_unlink(&h,stream->soundread,-1,0);
-#ifdef TWO_WAY_AUDIORECORD
-        if(select_flow == AudioFromSoundRead)
-            audio_mkv_rec_graph_unlink(&h,stream);
-#endif
+//#ifdef TWO_WAY_AUDIORECORD
+//        if(select_flow == AudioFromSoundRead)
+//            audio_mkv_rec_graph_unlink(&h,stream);
+//#endif
 #ifdef PURE_WAV_RECORD
         if(select_flow == AudioFromSoundRead)
             audio_pure_wav_record_graph_unlink(&h,stream);
 #endif
         if (stream->read_resampler!=NULL)
             ms_connection_helper_unlink(&h,stream->read_resampler,0,0);
-        if (stream->ec!=NULL){
-            hw_engine_uninit();
+        if (stream->ec!=NULL)
             ms_connection_helper_unlink(&h,stream->ec,1,1);
-            }
         if (stream->equalizerMIC!=NULL)
             ms_connection_helper_unlink(&h,stream->equalizerMIC,0,0);
         if (stream->volsend!=NULL)
@@ -824,12 +823,12 @@ void audio_stream_udp_stop(AudioStream * stream, LinphoneAudioStreamFlow select_
         /*dismantle the receiving graph*/
         ms_connection_helper_start(&h);
         ms_connection_helper_unlink(&h,stream->ms.udprecv,-1,0);
-#ifdef TWO_WAY_AUDIORECORD
-        if(select_flow == AudioFromUdpRecv)
-            audio_mkv_rec_graph_unlink(&h,stream);
-#else
-            audio_mkv_rec_graph_unlink(&h,stream);
-#endif
+//#ifdef TWO_WAY_AUDIORECORD
+//        if(select_flow == AudioFromUdpRecv)
+//            audio_mkv_rec_graph_unlink(&h,stream);
+//#else
+//            audio_mkv_rec_graph_unlink(&h,stream);
+//#endif
         if (stream->ms.decoder)
             ms_connection_helper_unlink(&h,stream->ms.decoder,0,0);
 #ifdef PURE_WAV_RECORD
@@ -975,13 +974,7 @@ void audio_stream_post_configure(AudioStream *stream, bool_t mic_muted,dictionar
             }while(1);
         }
     }
-
-    if (stream->ec){
-        //int aec_delay=lp_config_get_int(lc->config,SOUND,"ecdelay",(int)CFG_AEC_DELAY_MS);
-        int aec_delay=iniparser_getint( inicfg, "Esound:ecdelay",(int)CFG_AEC_DELAY_MS);
-        ms_filter_call_method(stream->ec,MS_ECHO_CANCELLER_SET_DELAY,&aec_delay);
-    }
-
+    
 }
 
 void video_stream_set_recorder_audio_codec(VideoStream *stream) {

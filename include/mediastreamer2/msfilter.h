@@ -623,6 +623,7 @@ the method index (_cnt_) and the argument size */
 #define MS_FILTER_GET_NCHANNELS     MS_FILTER_BASE_METHOD(5,int)
 #define MS_FILTER_SET_NCHANNELS     MS_FILTER_BASE_METHOD(6,int)
 #define MS_FILTER_SET_DATALENGTH    MS_FILTER_BASE_METHOD(12,int)
+#define MS_FILTER_SET_USEAEC        MS_FILTER_BASE_METHOD(13,int)
 /**
  * Set codec dependent attributes as taken from the SDP
  */

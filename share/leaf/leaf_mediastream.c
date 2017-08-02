@@ -115,8 +115,8 @@ void leaf_init_audio_streams (LeafCall *call, unsigned short port) {
     audiostream->play_dtmfs=FALSE;
     audiostream->use_gc=FALSE;
     audiostream->use_agc=FALSE;
-    if(audiostream->use_ec)
-        audiostream->ec=ms_filter_new(MS_SBC_AEC_ID);//creat
+//    if(audiostream->use_ec)
+//        audiostream->ec=ms_filter_new(MS_SBC_AEC_ID);//creat    
 }
 
 void leaf_start_video_stream(LeafCall *call, const char *addr, int port) {

@@ -29,13 +29,15 @@ static int _alc5616_DA_running = 0;
 static int _alc5616_AD_running = 0;
 static pthread_mutex_t ALC5616_MUTEX = PTHREAD_MUTEX_INITIALIZER;
 
-static int _alc5616_micin = 1;
-static int _alc5616_linein = 1;
-static int _alc5616_spkout = 1;
-static int _alc5616_hpout = 1;
-static int _alc5616_channel = 2;
+static int _alc5616_micin   = 1;
+static int _alc5616_linein  = 0;
+static int _alc5616_lineout = 0;
+static int _alc5616_spkout  = 1;
+static int _alc5616_hpout   = 1;
+static int _alc5616_channel = 2; //note set 2 can get louder 
 
 static int _alc5616_cold_start = 1; /* alc5616q should enable power only once */
+static int _alc5616_mute = 0;
 
 static int i2s_sample_rate = 48000;
 
@@ -183,7 +185,8 @@ static void init_alc5616_common(void)
         alc5616_write_reg(0x62, 0x8800); /* AD/DA Digital Filter Power */
         alc5616_write_reg(0x63, 0xB8F0); /* Enable Vref voltage, enable all analog Circuit bias */
 
-        alc5616_write_reg(0x3D, 0x0000);
+        alc5616_write_reg(0x3B, 0x0000); /* RECMIXL ctr1 0db*/
+        alc5616_write_reg(0x3D, 0x0000); /* RECMIXR ctr1 0db*/
         
         alc5616_write_reg(0x73, 0x0100); /* Stereo ADC/DAC Clock ctrl */
         alc5616_write_reg(0x03, 0x2727); /* SP/HP Output Mixer ctrl & Gain -46.5dB:0x2727 0dB:0x0808 +12dB:0x0000*/
@@ -200,10 +203,15 @@ static void init_alc5616_common(void)
             alc5616_write_reg(0x19, adj);/* DAC Digital Volume ctrl -11.25 dB */
         }
         alc5616_write_reg(0x65, 0xCC00); /* OUTMIXR/L RECMIXR/L power on */
-        alc5616_write_reg(0x8E, 0x001D); /* OUTMIXR/L RECMIXR/L power on */
+        alc5616_write_reg(0x8E, 0x001D); /* HP Amp Control */
  
         if(_alc5616_micin)        
         {   
+            /*dual mic as input*/
+            //alc5616_write_reg(0x0D, 0x2200);/*MIC1/MIC2 as single end input , Mic1/2 Boost 24db*/
+            //alc5616_write_reg(0x3E, 0x0FFB);/* BST2 to RECMIXR */
+            //alc5616_write_reg(0x3C, 0x0FFD);/* BST1 to RECMIXL */           
+            //alc5616_write_reg(0x64, 0xC800); /* MIC BST1 BST2 Boost Power Ctrl */    
         	/* MIC2 as input */
             //alc5616_write_reg(0x0D, 0x02C0); /* MIC2 as Differential input , Mic2 Boost 24 dB */          
             //alc5616_write_reg(0x3E, 0x1FFB);/* BST2 to RECMIXR */
@@ -225,6 +233,11 @@ static void init_alc5616_common(void)
             alc5616_write_reg(0x3C, 0x1FFF);/* BST2 to RECMIXL */
         }
         
+        if(_alc5616_linein){
+            alc5616_writeRegMask(0x3C, (0<<5),(1<<5));//input L line-in to ADC
+            alc5616_writeRegMask(0x3E, (0<<5),(1<<5));//input R line-in to ADC
+        }
+        
         //if(_alc5616_linein)        
         //{
         //    alc5616_writeRegMask(0x14, (0<<10)|(0<<11)|(0<<2)|(0<<3), (1<<10)|(1<<11)|(1<<2)|(1<<3));       
@@ -241,15 +254,15 @@ static void init_alc5616_common(void)
         alc5616_write_reg(0x2A, 0x0202); /* DAC Digital Mixer Control */
         alc5616_write_reg(0x02, 0x2727); /* unmute HPOL/HPOVOLL & Gain -46.5dB:0x2727 0dB:0x0808 +12dB:0x0000*/
         alc5616_write_reg(0x45, 0x0000); /* unmute HPOLMIX*/
-        alc5616_write_reg(0x29, 0x8080);
+        alc5616_write_reg(0x29, 0x8080); /* stero ADC to DAC digital Mixer ctrl*/
 
 
-        alc5616_write_reg(0xFA, 0x0011);
-        alc5616_write_reg(0x8F, 0x3100);
-        alc5616_write_reg(0x6A, 0x003D);
-        alc5616_write_reg(0x6C, 0x3E00);
-        alc5616_write_reg(0x51, 0x0100);/*OUTMIXL Gain :-6db*/
-        alc5616_write_reg(0x4E, 0x0100);/*OUTMIXR Gain :-6db*/
+        alc5616_write_reg(0xFA, 0x0011); /*General ctrl*/
+        alc5616_write_reg(0x8F, 0x3100); /*Hp Amp ctrl2*/
+        alc5616_write_reg(0x6A, 0x003D); /*private rigister index*/
+        alc5616_write_reg(0x6C, 0x3E00); /*private register data*/
+        alc5616_write_reg(0x51, 0x0100); /*OUTMIXL Gain :-6db*/
+        alc5616_write_reg(0x4E, 0x0100); /*OUTMIXR Gain :-6db*/
 
 #if 1 /* RealTek's new flow @ 2015-0211, 12:51 */        
         if(_alc5616_spkout)/* Enable SPK_L and SPK_R */
@@ -262,7 +275,13 @@ static void init_alc5616_common(void)
             alc5616_write_reg(0x4F, 0x0279);/* Disable DAC L/R to Speaker Mixer*/
             alc5616_write_reg(0x52, 0x0279);/* Disable DAC L/R to Speaker Mixer*/
         }
-        usleep(50000);/* Delay (50 ms) to allow HP amps to settle */
+        
+        if(_alc5616_lineout){
+            alc5616_writeRegMask(0x4F, (0<<4),(1<<4));//L line-out to outmixer
+            alc5616_writeRegMask(0x52, (0<<4),(1<<4));//R line-out to outmixer        
+        }       
+        
+        usleep(10000);/* Delay (10 ms) to allow HP amps to settle */
 
         if(_alc5616_spkout)
         {
@@ -334,7 +353,9 @@ void itp_codec_wake_up(void)
 #if (CFG_DOORBELL_INDOOR)||(CFG_DOORBELL_ADMIN)||(CFG_DOORBELL_LOBBY)
 	init_alc5616_common();
 	_alc5616_AD_running = 1;
-#endif		
+#endif
+    if(_alc5616_mute)
+        itp_codec_playback_mute();
 	pthread_mutex_unlock(&ALC5616_MUTEX);
 }
 void itp_codec_standby(void)
@@ -524,22 +545,27 @@ void itp_codec_playback_mute(void)
     /* just decrease output volume */
 	alc5616_write_reg(0x2A, 0x6363);/*Stereo DAC digital mixer control ,note:if comment, farend have no voice when communicating press mute */
 	alc5616_writeRegMask(0x65,(0<<14)|(0<<15),(1<<14)|(1<<15)); /*power down OUTMIXL/R note:prevent switch pop sound*/       
-    //    if(_alc5616_hpout)
-    //    {
-    //        alc5616_writeRegMask(0x02, (1<<7)|(1<<15), (1<<7)|(1<<15)); /* Mute HPOL/HPOR */
-	//	}       
-    //    if(_alc5616_spkout)
-    //    {
-    //        alc5616_writeRegMask(0x03, (1<<7)|(1<<15), (1<<7)|(1<<15)); /* Mute SPO_P/SPO_N */	
-	//	}
-    //i2s_delay_us(1000); /* FIXME: dummy loop */
-
+        // if(_alc5616_hpout)
+        // {
+            // alc5616_writeRegMask(0x02, (1<<7)|(1<<15), (1<<7)|(1<<15)); /* Mute HPOL/HPOR */
+		// }       
+        // if(_alc5616_spkout)
+        // {
+            // alc5616_writeRegMask(0x03, (1<<7)|(1<<15), (1<<7)|(1<<15)); /* Mute SPO_P/SPO_N */	
+		// }
+    // i2s_delay_us(1000); /* FIXME: dummy loop */
+    _alc5616_mute = 1;
 	pthread_mutex_unlock(&ALC5616_MUTEX);
 }
 
 void itp_codec_playback_unmute(void)
 {
 
+    if(curr_out1_volume == MIN_OUT1_VOLUME) 
+    {// vol = min (mute volume) 
+        itp_codec_playback_mute();
+        return;
+    }
 	pthread_mutex_lock(&ALC5616_MUTEX);
 	
     //unsigned short data16;
@@ -559,17 +585,17 @@ void itp_codec_playback_unmute(void)
 
 	alc5616_write_reg(0x2A, 0x0202);/*Stereo DAC digital mixer control ,note:if comment, farend have no voice when communicating press mute */
 	alc5616_writeRegMask(0x65,(1<<14)|(1<<15),(1<<14)|(1<<15));/*power on OUTMIXL/R note:prevent switch pop sound*/
-/* 	if(_alc5616_hpout) 
-	{
-        alc5616_writeRegMask(0x02, (0<<7)|(0<<15), (1<<7)|(1<<15));        
-	}
-	if(_alc5616_spkout)
-	{				
-		alc5616_writeRegMask(0x03, (0<<7)|(0<<15), (1<<7)|(1<<15));
-	} 
-	*/
-	//i2s_delay_us(1000); /* FIXME: dummy loop */
-
+ 	// if(_alc5616_hpout) 
+	// {
+        // alc5616_writeRegMask(0x02, (0<<7)|(0<<15), (1<<7)|(1<<15));        
+	// }
+	// if(_alc5616_spkout)
+	// {				
+		// alc5616_writeRegMask(0x03, (0<<7)|(0<<15), (1<<7)|(1<<15));
+	// } 
+	
+	// i2s_delay_us(1000); /* FIXME: dummy loop */
+    _alc5616_mute = 0;
 	pthread_mutex_unlock(&ALC5616_MUTEX);	
 }
 
@@ -654,6 +680,7 @@ void itp_codec_rec_set_direct_vol(unsigned target_vol)
 		if(_alc5616_AD_running)
 		{		   
 		   alc5616_writeRegMask(0x1C, curr_input_pga_volume << 8, 0x7F << 8);
+           alc5616_writeRegMask(0x1C, curr_input_pga_volume << 0, 0x7F << 0);           
 		}
 
 		//i2s_delay_us(1000); /* FIXME: dummy loop */;

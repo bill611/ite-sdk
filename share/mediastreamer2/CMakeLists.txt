@@ -188,6 +188,8 @@ add_library(mediastreamer STATIC
     mixvoice.c
     #webrtcagc.c
     adpcm.c
+    sbc_aec_api.c
+    sbc_aec_api.h
     )
 
 if (DEFINED CFG_BUILD_LEAF)

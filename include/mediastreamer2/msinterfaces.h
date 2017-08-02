@@ -83,7 +83,8 @@ enum _MSPlayerState{
     MSPlayerClosed,
     MSPlayerPaused,
     MSPlayerPlaying,
-    MSPlayerEof
+    MSPlayerEof,
+    MSdummyPlaying
 };
 
 typedef enum _MSPlayerState MSPlayerState;

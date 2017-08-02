@@ -111,13 +111,13 @@ static void linphonec_stop_mp3_ring()
     // close handler (if any)
     if (AL_Local_player_http_handle)
     {
-        fclose(AL_Local_player_http_handle);
-        AL_Local_player_http_handle = NULL;
-
     // check mp3 ring
 #ifdef __OPENRTOS__
         smtkAudioMgrQuickStop();
 #endif
+        fclose(AL_Local_player_http_handle);
+        AL_Local_player_http_handle = NULL;
+        
         castor3snd_reinit_for_video_memo_play();
     }
     
