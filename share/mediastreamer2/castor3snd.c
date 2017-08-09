@@ -22,6 +22,7 @@ MSFilter *ms_castor3snd_write_new(MSSndCard *card);
 
 static STRC_I2S_SPEC spec_da = {0};
 static STRC_I2S_SPEC spec_ad = {0};
+static int SBCAECflag=0;
 
 typedef struct Castor3SndData{
     char *pcmdev;
@@ -160,7 +161,7 @@ static void castor3snd_init(MSSndCard *card)
 #endif
 
     iteAudioOpenEngine(ITE_SBC_CODEC);
-
+    SBCAECflag=1;
     /* init DAC */
     d->dac_buf_len = 128 * 1024;
     d->dac_buf = (uint8_t*)malloc(d->dac_buf_len);
@@ -1091,15 +1092,19 @@ MS_FILTER_DESC_EXPORT(castor3snd_write_desc)
 
 void castor3snd_deinit_for_video_memo_play(void)
 {
+    SBCAECflag = 0;
+    spec_da.sample_rate = 0;
+    spec_da.sample_size = 0;
     i2s_deinit_ADC();
     i2s_deinit_DAC();
 }
 void castor3snd_reinit_for_video_memo_play(void)
 {
     iteAudioOpenEngine(ITE_SBC_CODEC);
-    i2s_init_DAC(&spec_da);
-    i2s_init_ADC(&spec_ad);
-    i2s_pause_ADC(1);
+    SBCAECflag = 1;
+    //i2s_init_DAC(&spec_da);
+    //i2s_init_ADC(&spec_ad);
+    //i2s_pause_ADC(1);
 }
 
 void Castor3snd_reinit_for_diff_rate(int rate,int bitsize)

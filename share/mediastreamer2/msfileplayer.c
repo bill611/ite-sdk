@@ -179,7 +179,11 @@ static int player_open(MSFilter *f, void *arg){
 static int player_start(MSFilter *f, void *arg){
     PlayerData *d=(PlayerData*)f->data;
     if (d->state==MSPlayerPaused)
-        d->state=MSPlayerPlaying;
+        d->state = MSPlayerPlaying;
+    else{
+        d->state = MSdummyPlaying;
+        printf("MSdummyPlaying scilent\n");
+    }
     return 0;
 }
 
@@ -312,6 +316,12 @@ static void player_process(MSFilter *f){
             return;
         }
     }
+    if(d->state == MSdummyPlaying){
+        mblk_t *om=allocb(bytes,0);
+        memset(om->b_wptr,0,bytes);
+        om->b_wptr+=bytes;
+        ms_queue_put(f->outputs[0],om);
+    }
     ms_filter_unlock(f);
 }
 
@@ -339,7 +349,7 @@ static int player_get_datalen(MSFilter *f, void*arg){
     if(d->codectype == ULAW ||d->codectype == ALAW || d->codectype == OFFSET8BIT)
         ratio = 2;
     *((int*)arg)=d->datalen*ratio;
-    printf("d->codectype = %d  playlenth:d->datalen*ratio = %d*%d\n",d->codectype,d->datalen,ratio);
+    //printf("d->codectype = %d  playlenth:d->datalen*ratio = %d*%d\n",d->codectype,d->datalen,ratio);
     return 0;
 }
 

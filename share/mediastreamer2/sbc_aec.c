@@ -5,7 +5,6 @@
 #include "mediastreamer2/msfilter.h"
 #include "mediastreamer2/msticker.h"
 #include "ortp/b64.h"
-#include "mediastreamer2/hwengine.h"
 
 #ifdef HAVE_CONFIG_H
 #include "mediastreamer-config.h"
@@ -16,6 +15,7 @@
 #endif
 
 #include "ite/audio.h"
+    #define AEC_RUN_IN_ARM
 #include "type_def.h"
 #include "aecm_core.h"
 #include "basic_op.h"
@@ -37,8 +37,6 @@ typedef struct _AudioFlowController_{
     int current_pos;
     int current_dropped;
 }AudioFlowController_;
-
-static int drop;
  
 void audio_flow_controller_init_(AudioFlowController_ *ctl){
     ctl->target_samples=0;
@@ -118,20 +116,31 @@ mblk_t * audio_flow_controller_process_(AudioFlowController_ *ctl, mblk_t *m){
 static const int flow_control_interval_ms=5000;
  
 typedef struct SbcAECState{
+    MSFilter *msF;
     MSBufferizer delayed_ref;
     MSBufferizer ref;
     MSBufferizer echo;
+    MSBufferizer hw_ref;
+    MSBufferizer hw_echo;
+    //MSBufferizer hw_clean;
+
+    
+        bool_t hw_start;
+        ms_thread_t hw_thread;	
+        //ms_mutex_t hw_mutex;
+        
     int framesize;
     int samplerate;
     int delay_ms;
+    int AECframesize;
     int nominal_ref_samples;
     int min_ref_samples;
     AudioFlowController_ afc;
     bool_t echostarted;
     bool_t bypass_mode;
     bool_t using_zeroes;
-    queue_t echo_q;
-    queue_t ref_q;
+    //queue_t echo_q;
+    //queue_t ref_q;
 #ifdef EC_DUMP_ITE
     queue_t echo_copy_q;
     queue_t ref_copy_q;
@@ -139,7 +148,29 @@ typedef struct SbcAECState{
 #endif
     ms_mutex_t mutex;
 }SbcAECState;
- 
+#ifdef AEC_RUN_IN_ARM
+void AEC_IN_ARM_INIT(int *AECframesize,int *AECdelayms){
+
+    init_uexp();
+    init_udiv();
+    init_ursqrt();
+    init_nr_core(&NR_STATE_TX, 1);
+    NLP_Init(&nlp_state);
+    PBFDSR_Init(&anc_state);
+    PBFDAF_Init(&aec_state);
+    
+    #if(CFG_AUDIO_SAMPLING_RATE == 16000)
+    *AECframesize = 256;
+    *AECdelayms   = 0;
+    #else
+    *AECframesize = 128;
+    *AECdelayms   = 140;
+    #endif
+}
+void AEC_IN_ARM_UNINIT(){
+    return ;
+}
+#endif
 static void sbc_aec_init(MSFilter *f){
     SbcAECState *s=(SbcAECState *)ms_new(SbcAECState,1);
  
@@ -147,21 +178,21 @@ static void sbc_aec_init(MSFilter *f){
     ms_bufferizer_init(&s->delayed_ref);
     ms_bufferizer_init(&s->echo);
     ms_bufferizer_init(&s->ref);
-    s->delay_ms=CFG_AEC_DELAY_MS;
+    ms_bufferizer_init(&s->hw_ref);
+    ms_bufferizer_init(&s->hw_echo);
+    //ms_bufferizer_init(&s->hw_clean);    
+    
+  
     s->using_zeroes=FALSE;
     s->echostarted=FALSE;
     s->bypass_mode=FALSE;
-#if (CFG_CHIP_FAMILY == 9910)
-    s->framesize=144; // MUST assign value for win32, otherwise break at alloca(nbytes)
-#else
-    #if(CFG_AUDIO_SAMPLING_RATE == 16000)
-    s->framesize=256;
-    #else
-    s->framesize=128;//16K : s->framesize=256
-    #endif  
-#endif
-    qinit(&s->echo_q);
-    qinit(&s->ref_q);
+    s->hw_start=FALSE;
+    
+    //s->framesize=320;
+    s->delay_ms=CFG_AEC_DELAY_MS;
+
+    //qinit(&s->echo_q);
+    //qinit(&s->ref_q);
 #ifdef EC_DUMP_ITE
     qinit(&s->echo_copy_q);
     qinit(&s->ref_copy_q);
@@ -170,17 +201,12 @@ static void sbc_aec_init(MSFilter *f){
     ms_mutex_init(&s->mutex,NULL);
  
     f->data=s;
-#if (CFG_CHIP_FAMILY == 9070 || CFG_CHIP_FAMILY == 9850)
-    init_uexp();
-    init_udiv();
-    init_ursqrt();
-    init_nr_core(&NR_STATE_TX, 1);
-    NLP_Init(&nlp_state);
-    PBFDSR_Init(&anc_state);
-    PBFDAF_Init(&aec_state);
+#ifdef AEC_RUN_IN_ARM
+    AEC_IN_ARM_INIT(&s->AECframesize,&s->delay_ms);
 #else //9910
-    iteAecCommand(AEC_CMD_INIT, 0, 0, 0, 0, &s->framesize);
+    iteAecCommand(AEC_CMD_INIT, 0, 0, 0, 0, &s->AECframesize);//AECframesize=144
 #endif
+    s->framesize = s->AECframesize; //s->framesize can be any size, equal to AECframesize more efficient  
 
 }
  
@@ -192,24 +218,30 @@ static void sbc_aec_uninit(MSFilter *f){
     ms_free(s);
 }
 
-static void hw_ec_process(void *arg) {
-    MSFilter *f=(MSFilter*)arg;
-    SbcAECState *s=(SbcAECState*)f->data;
-    mblk_t *ref;
-    mblk_t *echo;
-    int nbytes = s->framesize*2;
+static void *hw_engine_thread(void *arg) {
+    
+    SbcAECState *s=(SbcAECState*)arg;
 
-	echo = ref = NULL;
-	ms_mutex_lock(&s->mutex);
-	echo = getq(&s->echo_q);
-	ref = getq(&s->ref_q);
-	ms_mutex_unlock(&s->mutex);
+    int hw_nbytes = s->AECframesize*2;
+    int nbytes    = s->framesize*2;
 
-	if (echo && ref) {
-		mblk_t *oecho = allocb(nbytes, 0);
-		memset(oecho->b_wptr, 0, nbytes);
-#if (CFG_CHIP_FAMILY != 9910)
-    //memmove(oecho->b_wptr, echo->b_rptr, sizeof(short)*s->framesize);   //bypass
+    while(s->hw_start){
+        mblk_t *ref,*echo;
+        int err1,err2;
+        
+        ref=allocb(hw_nbytes, 0);
+        echo=allocb(hw_nbytes, 0);
+        ms_mutex_lock(&s->mutex);
+        err1 = ms_bufferizer_read(&s->hw_echo,echo->b_wptr,hw_nbytes);
+        err2 = ms_bufferizer_read(&s->hw_ref,ref->b_wptr,hw_nbytes);
+        ms_mutex_unlock(&s->mutex);
+
+        if (err1 && err2) {
+            mblk_t *oecho = allocb(hw_nbytes, 0);
+            memset(oecho->b_wptr, 0, hw_nbytes);
+            echo->b_wptr+=hw_nbytes;
+            ref->b_wptr+=hw_nbytes;
+#ifdef AEC_RUN_IN_ARM
         #if(CFG_AUDIO_SAMPLING_RATE == 16000)
             //PAES_Process_Block(&aecm,echo->b_rptr, ref->b_rptr, oecho->b_wptr); //16K
             FreqWarpping(echo->b_rptr, ref->b_rptr, oecho->b_wptr, &anc_state);
@@ -217,18 +249,44 @@ static void hw_ec_process(void *arg) {
             aecm_core(echo->b_rptr, ref->b_rptr, oecho->b_wptr, &anc_state);  //8K
         #endif
 #else //AEC run in RISC
-		iteAecCommand(AEC_CMD_PROCESS,(unsigned int) echo->b_rptr,(unsigned int) ref->b_rptr, (unsigned int) oecho->b_wptr,nbytes, 0);
+            iteAecCommand(AEC_CMD_PROCESS,(unsigned int) echo->b_rptr,(unsigned int) ref->b_rptr, (unsigned int) oecho->b_wptr,hw_nbytes, 0);
 #endif
-        oecho->b_wptr += nbytes;
+            oecho->b_wptr += hw_nbytes;
+            ms_queue_put(s->msF->outputs[1],oecho);
 #ifdef EC_DUMP_ITE
-        putq(&s->clean_copy_q, dupmsg(oecho));
+            putq(&s->clean_copy_q, dupmsg(oecho));
 #endif
-        ms_queue_put(f->outputs[1],oecho);
+        }else{
+           usleep(20000);
+        }
+        if (echo) freemsg(echo);
+        if (ref) freemsg(ref);
+        
+        if(s->hw_start==FALSE){
+            break;
+        }
     }
-    
-    if (echo) freemsg(echo);
-    if (ref) freemsg(ref);
 
+    return NULL;
+}
+static void sbc_aec_start_hwthread(SbcAECState *e){
+    //ms_mutex_init(&e->hw_mutex,NULL);
+    if (e->hw_start == FALSE){
+        pthread_attr_t attr;
+        struct sched_param param;
+        e->hw_start=TRUE;
+        pthread_attr_init(&attr);
+        pthread_attr_setstacksize(&attr, 25*1024);       
+        param.sched_priority = sched_get_priority_min(0) + 1;
+        pthread_attr_setschedparam(&attr, &param);
+        ms_thread_create(&e->hw_thread, &attr, hw_engine_thread, e);
+    }
+}
+
+static void sbc_aec_stop_hwthread(SbcAECState *e){
+    e->hw_start=FALSE;
+    //ms_mutex_destroy(e->hw_mutex);
+    ms_thread_join(e->hw_thread,NULL);      
 }
  
 static void sbc_aec_preprocess(MSFilter *f){
@@ -241,13 +299,14 @@ static void sbc_aec_preprocess(MSFilter *f){
  
     /* fill with zeroes for the time of the delay*/
     m=allocb(delay_samples*2,0);
-    memset(m->b_wptr,0,delay_samples*2);
+    memset(m->b_wptr,-10,delay_samples*2);
     m->b_wptr+=delay_samples*2;
     ms_bufferizer_put(&s->delayed_ref,m);
     s->min_ref_samples=-1;
     s->nominal_ref_samples=delay_samples;
     audio_flow_controller_init_(&s->afc);
-    drop = 0;
+    s->msF = f;
+    sbc_aec_start_hwthread(s);
     
     //hw_engine_init();
     //hw_engine_link_filter(HW_EC_ID, f);
@@ -273,19 +332,6 @@ static void sbc_aec_process(MSFilter *f){
         return;
     }
     
-#ifdef AEC_INPLUSE_GENERATER
-    if (f->ticker->time %  2000 == 0){
-        mblk_t *refm_tmp;
-        refm_tmp=allocb(nbytes,0);
-        memset(refm_tmp->b_wptr,40,nbytes);
-        refm_tmp->b_wptr+=nbytes;
-#ifdef INPLUSE_GENERATER_SEND
-        ms_queue_put(f->outputs[1],refm_tmp); //send to far-end
-#else
-        ms_queue_put(f->inputs[0],refm_tmp);  //send to near-end
-#endif
-    }
-#endif 
       
     if (f->inputs[0]!=NULL){
         if (s->echostarted){
@@ -316,7 +362,7 @@ static void sbc_aec_process(MSFilter *f){
         if ((avail=ms_bufferizer_get_avail(&s->delayed_ref))<((s->nominal_ref_samples*2)+nbytes)){
             /*we don't have enough to read in a reference signal buffer, inject silence instead*/
             refm=allocb(nbytes,0);
-            memset(refm->b_wptr,0,nbytes);
+            memset(refm->b_wptr,10,nbytes);
             refm->b_wptr+=nbytes;
             ms_mutex_lock(&s->mutex);
             ms_bufferizer_put(&s->delayed_ref,refm);
@@ -359,8 +405,10 @@ static void sbc_aec_process(MSFilter *f){
         ref_to_ec->b_wptr += nbytes;
         
         ms_mutex_lock(&s->mutex);
-        putq(&s->echo_q, echo_to_ec);
-        putq(&s->ref_q, ref_to_ec);
+        //putq(&s->echo_q, echo_to_ec);
+        //putq(&s->ref_q, ref_to_ec);
+        ms_bufferizer_put(&s->hw_echo,echo_to_ec);//put to buffer
+        ms_bufferizer_put(&s->hw_ref,ref_to_ec);  //put to buffer    
 #ifdef EC_DUMP_ITE
         putq(&s->echo_copy_q, dupmsg(echo_to_ec));
         putq(&s->ref_copy_q, dupmsg(ref_to_ec));
@@ -371,8 +419,8 @@ static void sbc_aec_process(MSFilter *f){
     /*verify our ref buffer does not become too big, meaning that we are receiving more samples than we are sending*/
     if (f->ticker->time % flow_control_interval_ms == 0 && s->min_ref_samples!=-1){
         int diff=s->min_ref_samples-s->nominal_ref_samples;
-        if (diff>(nbytes/1)){
-            int purge=diff-(nbytes/1);
+        if (diff>(nbytes/2)){
+            int purge=diff-(nbytes/2);
             ms_warning("echo canceller: we are accumulating too much reference signal, need to throw out %i samples",purge);
             audio_flow_controller_set_target_(&s->afc,purge,(flow_control_interval_ms*s->samplerate)/1000);
         }
@@ -383,14 +431,21 @@ static void sbc_aec_process(MSFilter *f){
 static void sbc_aec_postprocess(MSFilter *f){
     SbcAECState *s=(SbcAECState*)f->data;
  
+    sbc_aec_stop_hwthread(s);
+#ifdef AEC_RUN_IN_ARM 
+    AEC_IN_ARM_UNINIT();
+#endif 
     ms_bufferizer_flush (&s->delayed_ref);
     ms_bufferizer_flush (&s->echo);
     ms_bufferizer_flush (&s->ref);
+    ms_bufferizer_flush (&s->hw_ref);
+    ms_bufferizer_flush (&s->hw_echo);
+    //ms_bufferizer_flush (&s->hw_clean);    
  
     //hw_engine_uninit();
     
-    flushq(&s->echo_q,0);
-    flushq(&s->ref_q,0);
+    //flushq(&s->echo_q,0);
+    //flushq(&s->ref_q,0);
  
 #ifdef EC_DUMP_ITE
     FILE *echofile;
@@ -511,11 +566,6 @@ MSFilterDesc ms_sbc_aec_desc={
     sbc_aec_methods
 };
  
-HWEngineDesc hw_ec_engine_desc={
-    HW_EC_ID,
-    hw_ec_process
-};
- 
 #else
  
 MSFilterDesc ms_sbc_aec_desc={
@@ -531,11 +581,6 @@ MSFilterDesc ms_sbc_aec_desc={
     .postprocess=sbc_aec_postprocess,
     .uninit=sbc_aec_uninit,
     .methods=sbc_aec_methods
-};
- 
-HWEngineDesc hw_ec_engine_desc={
-    .id=HW_EC_ID,
-    .process=hw_ec_process
 };
  
 #endif

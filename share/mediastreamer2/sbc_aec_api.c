@@ -15,9 +15,9 @@
 
 //#define ENABLE_DUMP_AEC_DATA
 
-#ifdef ENABLE_DUMP_AEC_DATA
-#define EC_DUMP_ITE
-#endif
+//#ifdef ENABLE_DUMP_AEC_DATA
+// #define EC_DUMP_ITE
+//#endif
 
 SbcAECState* AEC_ITE_INIT(int SAMPLINGRATE,int FRAMESIZE,int DELAY_MS,bool_t BYPASS){
     

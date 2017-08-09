@@ -277,6 +277,7 @@ void ring_stop(RingStream *stream){
 #ifdef CFG_MP3_RING
     if(AL_Local_player_http_handle){
         linphonec_stop_mp3_ring();
+        ms_free(stream);        
         return;
     }
 #endif    
