@@ -717,6 +717,7 @@ typedef enum
     ITU_EVENT_TOUCHPINCH        = 34,   ///< Notify the pinch event of touch panel to all visible widgets
     ITU_EVENT_LOAD_EXTERNAL     = 35,   ///< Notify the widget to load external data
     ITU_EVENT_LOAD_IMAGE        = 36,   ///< Notify the widget to load external image
+	ITU_EVENT_DRAGGING          = 37,   ///< Notify the widget is dragging
 
     ITU_EVENT_CUSTOM            = 100   ///< Notify the custom event
 } ITUEvent;

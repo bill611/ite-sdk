@@ -21,7 +21,9 @@ extern HWEngineDesc hw_ec_engine_desc;
 //extern HWEngineDesc hw_dec_engine_desc;
 
 static HWEngineDesc * hw_engines[]={
+#ifndef WIN32
     &hw_ec_engine_desc,
+#endif
 	//&hw_enc_engine_desc,
 	//&hw_dec_engine_desc,
     NULL

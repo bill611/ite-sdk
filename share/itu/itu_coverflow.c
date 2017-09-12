@@ -9,7 +9,7 @@
 
 static const char coverFlowName[] = "ITUCoverFlow";
 
-static int CoverFlowGetVisibleChildCount(ITUCoverFlow* coverflow)
+int CoverFlowGetVisibleChildCount(ITUCoverFlow* coverflow)
 {
     int i = 0;
     ITCTree *child, *tree = (ITCTree*)coverflow;
@@ -24,7 +24,7 @@ static int CoverFlowGetVisibleChildCount(ITUCoverFlow* coverflow)
     return i;
 }
 
-static ITUWidget* CoverFlowGetVisibleChild(ITUCoverFlow* coverflow, int index)
+ITUWidget* CoverFlowGetVisibleChild(ITUCoverFlow* coverflow, int index)
 {
     int i = 0;
     ITCTree *child, *tree = (ITCTree*)coverflow;
@@ -33,11 +33,12 @@ static ITUWidget* CoverFlowGetVisibleChild(ITUCoverFlow* coverflow, int index)
     for (child = tree->child; child; child = child->sibling)
     {
         ITUWidget* widget = (ITUWidget*)child;
-        if (widget->visible)
-        {
-            if (i++ == index)
-                return widget;
-        }
+
+		if (widget->visible)
+		{
+			if (i++ == index)
+				return widget;
+		}
     }
     return NULL;
 }
@@ -48,15 +49,26 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
     ITUCoverFlow* coverFlow = (ITUCoverFlow*) widget;
     assert(coverFlow);
 
-    result |= ituFlowWindowUpdate(widget, ev, arg1, arg2, arg3);
+    if ((widget->flags & ITU_TOUCHABLE) && ituWidgetIsEnabled(widget) && (ev == ITU_EVENT_MOUSEDOWN || ev == ITU_EVENT_MOUSEUP))
+    {
+        int x = arg2 - widget->rect.x;
+        int y = arg3 - widget->rect.y;
 
-    if (widget->flags & ITU_TOUCHABLE)
+        if (ituWidgetIsInside(widget, x, y))
+            result |= ituFlowWindowUpdate(widget, ev, arg1, arg2, arg3);
+    }
+    else
+    {
+        result |= ituFlowWindowUpdate(widget, ev, arg1, arg2, arg3);
+    }
+
+    if (widget->flags & ITU_TOUCHABLE) 
     {
         if ((ev == ITU_EVENT_TOUCHSLIDELEFT || ev == ITU_EVENT_TOUCHSLIDERIGHT) && ((coverFlow->coverFlowFlags & ITU_COVERFLOW_VERTICAL) == 0))
         {
             coverFlow->touchCount = 0;
 
-            if (ituWidgetIsEnabled(widget))
+			if (ituWidgetIsEnabled(widget)) // && (widget->flags & ITU_DRAGGABLE))
             {
                 int x = arg2 - widget->rect.x;
                 int y = arg3 - widget->rect.y;
@@ -66,6 +78,22 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
 					int count = CoverFlowGetVisibleChildCount(coverFlow);
 					ITUWidget* child = CoverFlowGetVisibleChild(coverFlow, 0);
 					bool boundary_touch = false;
+					////try to fix the mouse up shadow(last frame) diff when sliding start(frame 0)
+					int offset, absoffset, interval;
+					offset = x - coverFlow->touchPos;
+					interval = offset / child->rect.width;
+					offset -= (interval * child->rect.width);
+					absoffset = offset > 0 ? offset : -offset;
+
+					if (absoffset > child->rect.width / 2)
+						coverFlow->frame = absoffset / (child->rect.width / coverFlow->totalframe) + 1;
+					else if (absoffset)
+						coverFlow->frame = coverFlow->totalframe - absoffset / (child->rect.width / coverFlow->totalframe);
+					else
+						coverFlow->frame = 0;
+
+					if (!(widget->flags & ITU_DRAGGABLE))
+						coverFlow->frame = 0;
 
                     ituSetPressedButton(widget, false);
 
@@ -89,6 +117,8 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
 
                     if (ev == ITU_EVENT_TOUCHSLIDELEFT)
                     {
+						//ituWidgetSetCustomData(coverFlow, -1);
+
                         if ((coverFlow->coverFlowFlags & ITU_COVERFLOW_CYCLE) ||
                             (coverFlow->focusIndex < count - 1))
                         {
@@ -110,7 +140,7 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                 if (coverFlow->inc == 0)
                                     coverFlow->inc = 0 - child->rect.width;
 
-                                coverFlow->frame = 1;
+                                //coverFlow->frame = 1;
                             }
                         }
                         else if (coverFlow->focusIndex >= count - 1)
@@ -121,12 +151,14 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                     coverFlow->inc = 0 - (child->rect.width / coverFlow->bounceRatio);
 
                                 widget->flags |= ITU_BOUNCING;
-                                coverFlow->frame = 1;
+                                //coverFlow->frame = 1;
                             }
                         }
                     }
                     else // if (ev == ITU_EVENT_TOUCHSLIDERIGHT)
                     {
+						//ituWidgetSetCustomData(coverFlow, 1);
+
                         if ((coverFlow->coverFlowFlags & ITU_COVERFLOW_CYCLE) ||
                             (coverFlow->focusIndex > 0))
                         {
@@ -148,7 +180,7 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                 if (coverFlow->inc == 0)
                                     coverFlow->inc = child->rect.width;
 
-                                coverFlow->frame = 1;
+                                //coverFlow->frame = 1;
                             }
                         }
                         else if (coverFlow->focusIndex <= 0)
@@ -159,7 +191,7 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                     coverFlow->inc = (child->rect.width / coverFlow->bounceRatio);
 
                                 widget->flags |= ITU_BOUNCING;
-                                coverFlow->frame = 1;
+                                //coverFlow->frame = 1;
                             }
                         }
                     }
@@ -171,7 +203,7 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
         {
             coverFlow->touchCount = 0;
 
-            if (ituWidgetIsEnabled(widget))
+			if (ituWidgetIsEnabled(widget) && (widget->flags & ITU_DRAGGABLE))
             {
                 int x = arg2 - widget->rect.x;
                 int y = arg3 - widget->rect.y;
@@ -309,6 +341,7 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                     if (dist >= ITU_DRAG_DISTANCE)
                     {
                         ituSetPressedButton(widget, false);
+                        ituWidgetUpdate(widget, ITU_EVENT_DRAGGING, 0, 0, 0);
                     }
 
                     if (coverFlow->coverFlowFlags & ITU_COVERFLOW_VERTICAL)
@@ -356,6 +389,22 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                         }
                         else
                         {
+							//limit the move under non-cycle/Vertical boundaryAlign mode
+							bool b_touch = false;
+
+							if (coverFlow->boundaryAlign)
+							{
+								ITUWidget* child_1 = CoverFlowGetVisibleChild(coverFlow, 0);
+								ITUWidget* child_2 = CoverFlowGetVisibleChild(coverFlow, count - 1);
+								int child_height = child_1->rect.height;
+
+								if (child_1->rect.y > 0)
+									b_touch = true;
+
+								if ((child_2->rect.y + child_height) < widget->rect.height)
+									b_touch = true;
+							}
+
                             if (coverFlow->focusIndex <= 0)
                             {
                                 ITUWidget* child = CoverFlowGetVisibleChild(coverFlow, 0);
@@ -370,26 +419,36 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                             }
 
                             for (i = 0; i < count; ++i)
-                            {
+                            {//[MOVE][Vertical][non-cycle][layout]
                                 ITUWidget* child = CoverFlowGetVisibleChild(coverFlow, i);
                                 int fy = widget->rect.height / 2 - child->rect.height / 2;
+
+								if (coverFlow->boundaryAlign && b_touch)
+									break;
 
 								if (coverFlow->boundaryAlign)
 								{
 									int max_neighbor_item = ((widget->rect.height / child->rect.height) - 1) / 2;
+									int max_height_item = widget->rect.height / child->rect.height;
+									fy = 0;
 
 									if (max_neighbor_item == 0)
 										max_neighbor_item++;
 
-									if (coverFlow->focusIndex >= max_neighbor_item)
+									if (coverFlow->focusIndex > 0)//>= max_neighbor_item) //Bless debug now
 									{
-										if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
+										//if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
+										if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_height_item))		
 											fy = widget->rect.height - (count * child->rect.height);
 										else
 											fy -= child->rect.height * coverFlow->focusIndex;
 									}
 									else
 										fy = 0;
+								}
+								else
+								{
+									fy -= child->rect.height * coverFlow->focusIndex;
 								}
 
                                 fy += i * child->rect.height;
@@ -406,9 +465,10 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                         if (coverFlow->coverFlowFlags & ITU_COVERFLOW_CYCLE)
                         {
                             int index, count2;
-                        
-                            count2 = count / 2 + 1;
-                            index = coverFlow->focusIndex;
+                            //workaround for wrong left-side display with hide child
+                            count2 = count / 2 + 1 - ((offset>0)?(1):(0));
+							//count2 = count / 2 + 1;
+							index = coverFlow->focusIndex;
 
                             for (i = 0; i < count2; ++i)
                             {
@@ -444,6 +504,22 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                         }
                         else
                         {
+							//limit the move under non-cycle/Horizontal boundaryAlign mode
+							bool b_touch = false;
+
+							if (coverFlow->boundaryAlign)
+							{
+								ITUWidget* child_1 = CoverFlowGetVisibleChild(coverFlow, 0);
+								ITUWidget* child_2 = CoverFlowGetVisibleChild(coverFlow, count - 1);
+								int child_width = child_1->rect.width;
+
+								if (child_1->rect.x > 0)
+									b_touch = true;
+
+								if ((child_2->rect.x + child_width) < widget->rect.width)
+									b_touch = true;
+							}
+
                             if (coverFlow->focusIndex <= 0)
                             {
                                 ITUWidget* child = CoverFlowGetVisibleChild(coverFlow, 0);
@@ -471,22 +547,32 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                 }
                             }
 
+							
+
                             for (i = 0; i < count; ++i)
                             {
                                 ITUWidget* child = CoverFlowGetVisibleChild(coverFlow, i);
                                 int fx = widget->rect.width / 2 - child->rect.width / 2;
 
+								if (coverFlow->boundaryAlign && b_touch)
+									break;
+								
 								if (coverFlow->boundaryAlign)
-								{
+								{//[MOVE][Horizontal][non-cycle][layout]
 									int max_neighbor_item = ((widget->rect.width / child->rect.width) - 1) / 2;
+									int max_width_item = widget->rect.width / child->rect.width;
+									fx = 0;
 
 									if (max_neighbor_item == 0)
 										max_neighbor_item++;
 
-									if (coverFlow->focusIndex >= max_neighbor_item)
+									
+
+									if (coverFlow->focusIndex > 0) //>= max_neighbor_item) //Bless debug now
 									{
-										if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
-											fx = widget->rect.width - (count * child->rect.width);
+										//if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
+										if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_width_item))
+										    fx = widget->rect.width - (count * child->rect.width);
 										else
 											fx -= child->rect.width * coverFlow->focusIndex;
 									}
@@ -547,6 +633,8 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                 int count = CoverFlowGetVisibleChildCount(coverFlow);
                 int x = arg2 - widget->rect.x;
                 int y = arg3 - widget->rect.y;
+                
+                result = false; //Bless debug
 
                 if (coverFlow->coverFlowFlags & ITU_COVERFLOW_VERTICAL)
                 {
@@ -589,7 +677,7 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                         //printf("2: frame=%d offset=%d inc=%d interval=%d focusIndex=%d\n", coverFlow->frame, offset, coverFlow->inc, interval, coverFlow->focusIndex);
                                     }
                                 }
-                                else
+                                else if (absoffset)
                                 {
                                     coverFlow->frame = coverFlow->totalframe - absoffset / (child->rect.height / coverFlow->totalframe);
 
@@ -622,13 +710,14 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                     else
                     {
                         if (!result && count > 0)
-                        {
+                        {//[MOUSEUP][Vertical][non-cycle][layout]
                             ITUWidget* child = CoverFlowGetVisibleChild(coverFlow, 0);
 							bool boundary_touch = false;
-
+							
 							if (coverFlow->boundaryAlign)
 							{
 								int max_neighbor_item = ((widget->rect.height / child->rect.height) - 1) / 2;
+								int max_height_item = widget->rect.height / child->rect.height;
 
 								if (max_neighbor_item == 0)
 									max_neighbor_item++;
@@ -637,6 +726,11 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
 								{
 									if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
 										boundary_touch = true;
+									else
+									{
+										if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_height_item))
+											boundary_touch = true;
+									}
 								}
 								else
 									boundary_touch = true;
@@ -652,18 +746,20 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                 absoffset = offset > 0 ? offset : -offset;
 
                                 if (absoffset > child->rect.height / 2)
-                                {
+                                {//small shift alignment
                                     if (offset >= 0)
                                     {
                                         coverFlow->frame = absoffset / (child->rect.height / coverFlow->totalframe) + 1;
 
                                         if (coverFlow->focusIndex > interval)
                                         {
+											if (boundary_touch)
+												coverFlow->focusIndex = CoverFlowGetVisibleChildCount(coverFlow) - widget->rect.height / child->rect.height;
                                             coverFlow->inc = child->rect.height;
                                             coverFlow->focusIndex -= interval;
                                             //printf("5: frame=%d offset=%d inc=%d interval=%d focusIndex=%d\n", coverFlow->frame, offset, coverFlow->inc, interval, coverFlow->focusIndex);
-											if (boundary_touch)
-												coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.height / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
+											//if (boundary_touch)
+											//	coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.height / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
                                         }
                                         else
                                         {
@@ -681,8 +777,8 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                             coverFlow->inc = -child->rect.height;
                                             coverFlow->focusIndex -= interval;
                                             //printf("7: frame=%d offset=%d inc=%d interval=%d focusIndex=%d\n", coverFlow->frame, offset, coverFlow->inc, interval, coverFlow->focusIndex);
-											if (boundary_touch)
-												coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.height / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
+											//if (boundary_touch)
+											//	coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.height / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
                                         }
                                         else
                                         {
@@ -692,17 +788,20 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                         }
                                     }
                                 }
-                                else
+                                else if (absoffset)
                                 {
                                     coverFlow->frame = coverFlow->totalframe - absoffset / (child->rect.height / coverFlow->totalframe);
 
                                     if (offset >= 0)
-                                    {
+                                    {//big shift alignment
+										if ((boundary_touch) && (coverFlow->focusIndex > 0))
+											coverFlow->focusIndex = CoverFlowGetVisibleChildCount(coverFlow) - widget->rect.height / child->rect.height;
+
                                         coverFlow->inc = -child->rect.height;
                                         coverFlow->focusIndex -= interval + 1;
 
-										if (boundary_touch)
-											coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.height / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
+										//if (boundary_touch)
+										//	coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.height / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
 
                                         if (coverFlow->focusIndex < -1)
                                             coverFlow->focusIndex = -1;
@@ -770,7 +869,7 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                         //printf("2: frame=%d offset=%d inc=%d interval=%d focusIndex=%d\n", coverFlow->frame, offset, coverFlow->inc, interval, coverFlow->focusIndex);
                                     }
                                 }
-                                else
+                                else if (absoffset)
                                 {
                                     coverFlow->frame = coverFlow->totalframe - absoffset / (child->rect.width / coverFlow->totalframe);
 
@@ -806,10 +905,11 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                         {
                             ITUWidget* child = CoverFlowGetVisibleChild(coverFlow, 0);
 							bool boundary_touch = false;
-
+							//[MOUSEUP][Horizontal][non-cycle][layout]
 							if (coverFlow->boundaryAlign)
 							{
 								int max_neighbor_item = ((widget->rect.width / child->rect.width) - 1) / 2;
+								int max_width_item = widget->rect.width / child->rect.width;
 
 								if (max_neighbor_item == 0)
 									max_neighbor_item++;
@@ -818,6 +918,11 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
 								{
 									if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
 										boundary_touch = true;
+									else
+									{
+										if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_width_item))
+											boundary_touch = true;
+									}
 								}
 								else
 									boundary_touch = true;
@@ -840,11 +945,14 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
 
                                         if (coverFlow->focusIndex > interval)
                                         {
+											//small shift alignment
+											if (boundary_touch)
+												coverFlow->focusIndex = CoverFlowGetVisibleChildCount(coverFlow) - widget->rect.width / child->rect.width;
                                             coverFlow->inc = child->rect.width;
                                             coverFlow->focusIndex -= interval;
                                             //printf("5: frame=%d offset=%d inc=%d interval=%d focusIndex=%d\n", coverFlow->frame, offset, coverFlow->inc, interval, coverFlow->focusIndex);
-											if (boundary_touch)
-												coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.width / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
+											//if (boundary_touch)
+											//	coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.width / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
                                         }
                                         else
                                         {
@@ -862,8 +970,9 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                             coverFlow->inc = -child->rect.width;
                                             coverFlow->focusIndex -= interval;
                                             //printf("7: frame=%d offset=%d inc=%d interval=%d focusIndex=%d\n", coverFlow->frame, offset, coverFlow->inc, interval, coverFlow->focusIndex);
-											if (boundary_touch)
-												coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.width / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
+											//3
+											//if (boundary_touch)
+											//	coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.width / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
                                         }
                                         else
                                         {
@@ -873,17 +982,21 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                                         }
                                     }
                                 }
-                                else
+                                else if (absoffset)
                                 {
                                     coverFlow->frame = coverFlow->totalframe - absoffset / (child->rect.width / coverFlow->totalframe);
 
                                     if (offset >= 0)
                                     {
+										//big shift alignment
+										if ((boundary_touch) && (coverFlow->focusIndex > 0))
+											coverFlow->focusIndex = CoverFlowGetVisibleChildCount(coverFlow) - widget->rect.width / child->rect.width;
+										
                                         coverFlow->inc = -child->rect.width;
                                         coverFlow->focusIndex -= interval + 1;
 
-										if (boundary_touch)
-											coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.width / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
+										//if (boundary_touch)
+										//	coverFlow->focusIndex -= (interval != 0) ? (((offset >= 0) ? (1) : (-1))) : (((absoffset > child->rect.width / 2) ? (((offset >= 0) ? (1) : (-1))) : (0)));
 
                                         if (coverFlow->focusIndex < -1)
                                             coverFlow->focusIndex = -1;
@@ -1025,7 +1138,7 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                     result = true;
                     return widget->visible ? result : false;
                 }
-                else
+                else if (coverFlow->boundaryAlign == 0) //sync back to original update
                 {
                     float step = (float)coverFlow->frame / coverFlow->totalframe;
                     step = step * (float)M_PI / 2;
@@ -1055,8 +1168,8 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                     step = sinf(step);
                     
                     //printf("step=%f\n", step);
-
-                    count2 = count / 2 + 1;
+					//workaround for wrong left-side display with hide child
+                    count2 = count / 2 + 1 - ((coverFlow->inc <= 0)?(0):(1));
                     index = coverFlow->focusIndex;
 
                     for (i = 0; i < count2; ++i)
@@ -1119,7 +1232,7 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                     result = true;
                     return widget->visible ? result : false;
                 }
-                else
+                else if (coverFlow->boundaryAlign == 0) //sync back to original update
                 {
                     float step = (float)coverFlow->frame / coverFlow->totalframe;
                     step = step * (float)M_PI / 2;
@@ -1186,13 +1299,66 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
 				}
 				else
 				{
+					int* customdata = ituWidgetGetCustomData(coverFlow);
+					int i = 0;
+					bool no_queue = true;
 					coverFlow->frame = 0;
-					coverFlow->inc = 0;
-					widget->flags &= ~ITU_UNDRAGGING;
 
 					ituExecActions(widget, coverFlow->actions, ITU_EVENT_CHANGED, coverFlow->focusIndex);
 					ituCoverFlowOnCoverChanged(coverFlow, widget);
-					ituWidgetUpdate(widget, ITU_EVENT_LAYOUT, 0, 0, 0);
+					//Bless added for PoWei requirement --> prev/next work queue
+					//memcpy(customdata, ituWidgetGetCustomData(coverFlow), sizeof(int)*ITU_ACTIONS_SIZE);
+
+					if (customdata)
+					{
+						for (i = 0; i < ITU_ACTIONS_SIZE; i++)
+						{
+							if (customdata[i] != 0)
+							{
+								customdata[i] = 0;
+
+								if ((i + 1) < ITU_ACTIONS_SIZE)
+								{
+									if (customdata[i + 1] != 0)
+										no_queue = false;
+								}
+								
+								ituWidgetSetCustomData(coverFlow, customdata);
+								
+								break;
+							}
+						}
+					}
+
+					if (no_queue)
+					{
+						coverFlow->inc = 0;
+						widget->flags &= ~ITU_UNDRAGGING;
+						ituWidgetUpdate(widget, ITU_EVENT_LAYOUT, 0, 0, 0);
+					}
+					else
+					{
+						ITUWidget* childtmp = CoverFlowGetVisibleChild(coverFlow, 0);
+						coverFlow->inc = 0;
+						if (coverFlow->coverFlowFlags & ITU_COVERFLOW_VERTICAL)
+						{
+							if (customdata[i + 1] < 0)
+								//coverFlow->inc = childtmp->rect.height;
+								ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDEDOWN, 0, widget->rect.x, widget->rect.y);
+							else if (customdata[i + 1] > 0)
+								//coverFlow->inc = 0 - childtmp->rect.height;
+								ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDEUP, 0, widget->rect.x, widget->rect.y);
+						}
+						else
+						{
+							if (customdata[i + 1] < 0)
+								//coverFlow->inc = childtmp->rect.width;
+								ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDERIGHT, 0, widget->rect.x, widget->rect.y);
+							else if (customdata[i + 1] > 0)
+								//coverFlow->inc = 0 - childtmp->rect.width;
+								ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDELEFT, 0, widget->rect.x, widget->rect.y);
+						}
+					}
 				}
             }
         }
@@ -1266,15 +1432,18 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
                     int fy = widget->rect.height / 2 - child->rect.height / 2;
 
 					if (coverFlow->boundaryAlign)
-					{
+					{//[LAYOUT][Vertical][non-cycle]
 						int max_neighbor_item = ((widget->rect.height / child->rect.height) - 1) / 2;
+						int max_height_item = (widget->rect.height / child->rect.height);
+						fy = 0;
 
 						if (max_neighbor_item == 0)
 							max_neighbor_item++;
 
-						if (coverFlow->focusIndex >= max_neighbor_item)
+						if (coverFlow->focusIndex > 0) //>= max_neighbor_item) //Bless new debug
 						{
-							if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
+							//if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
+							if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_height_item))
 								fy = widget->rect.height - (count * child->rect.height);
 							else
 								fy -= child->rect.height * coverFlow->focusIndex;
@@ -1332,20 +1501,24 @@ bool ituCoverFlowUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, int 
             else
             {
                 for (i = 0; i < count; ++i)
-                {
+                {//[LAYOUT][Horizontal][non-cycle]
                     ITUWidget* child = CoverFlowGetVisibleChild(coverFlow, i);
                     int fx = widget->rect.width / 2 - child->rect.width / 2;
-
+					
 					if (coverFlow->boundaryAlign)
 					{
 						int max_neighbor_item = ((widget->rect.width / child->rect.width) - 1) / 2;
+						int max_width_item = (widget->rect.width / child->rect.width);
+
+						fx = 0;
 
 						if (max_neighbor_item == 0)
 							max_neighbor_item++;
 
-						if (coverFlow->focusIndex >= max_neighbor_item)
+						if (coverFlow->focusIndex > 0) //>= max_neighbor_item) //Bless debug now
 						{
-							if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
+							//if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_neighbor_item))
+							if ((count >= (max_neighbor_item * 2 + 1)) && ((count - coverFlow->focusIndex - 1) < max_width_item))
 								fx = widget->rect.width - (count * child->rect.width);
 							else
 								fx -= child->rect.width * coverFlow->focusIndex;
@@ -1528,12 +1701,46 @@ void ituCoverFlowPrev(ITUCoverFlow* coverflow)
     ITUWidget* widget = (ITUWidget*) coverflow;
     unsigned int oldFlags = widget->flags;
 
+	//Bless added for PoWei requirement --> prev/next work queue
+	int i = 0;
+	bool no_queue = true;
+	int* customdata = (int*)ituWidgetGetCustomData(coverflow);
+
+	if (customdata)
+	{
+		for (i = ITU_ACTIONS_SIZE - 1; i >= 0; i--)
+		{
+			if ((i - 1) >= 0)
+			{
+				if (customdata[i - 1] != 0)
+				{
+					customdata[i] = -1;
+					no_queue = false;
+					break;
+				}
+			}
+			else
+				customdata[i] = -1;
+		}
+		ituWidgetSetCustomData(coverflow, customdata);
+	}
+	else
+	{
+		int* newdata = malloc(sizeof(int)* ITU_ACTIONS_SIZE);
+		memset(newdata, 0, sizeof(int)* ITU_ACTIONS_SIZE);
+		newdata[0] = -1;
+		ituWidgetSetCustomData(coverflow, newdata);
+	}
+
     widget->flags |= ITU_TOUCHABLE;
 
-    if (coverflow->coverFlowFlags & ITU_COVERFLOW_VERTICAL)
-        ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDEDOWN, 0, widget->rect.x, widget->rect.y);
-    else
-        ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDERIGHT, 0, widget->rect.x, widget->rect.y);
+	if (no_queue)
+	{
+		if (coverflow->coverFlowFlags & ITU_COVERFLOW_VERTICAL)
+			ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDEDOWN, 0, widget->rect.x, widget->rect.y);
+		else
+			ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDERIGHT, 0, widget->rect.x, widget->rect.y);
+	}
 
     if ((oldFlags & ITU_TOUCHABLE) == 0)
         widget->flags &= ~ITU_TOUCHABLE;
@@ -1541,15 +1748,49 @@ void ituCoverFlowPrev(ITUCoverFlow* coverflow)
 
 void ituCoverFlowNext(ITUCoverFlow* coverflow)
 {
-    ITUWidget* widget = (ITUWidget*) coverflow;
-    unsigned int oldFlags = widget->flags;
+	ITUWidget* widget = (ITUWidget*)coverflow;
+	unsigned int oldFlags = widget->flags;
 
-    widget->flags |= ITU_TOUCHABLE;
+	//Bless added for PoWei requirement --> prev/next work queue
+	int i = 0;
+	bool no_queue = true;
+	int* customdata = (int*)ituWidgetGetCustomData(coverflow);
 
-    if (coverflow->coverFlowFlags & ITU_COVERFLOW_VERTICAL)
-        ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDEUP, 0, widget->rect.x, widget->rect.y);
-    else
-        ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDELEFT, 0, widget->rect.x, widget->rect.y);
+	if (customdata)
+	{
+		for (i = ITU_ACTIONS_SIZE - 1; i >= 0; i--)
+		{
+			if ((i - 1) >= 0)
+			{
+				if (customdata[i - 1] != 0)
+				{
+					customdata[i] = 1;
+					no_queue = false;
+					break;
+				}
+			}
+			else
+				customdata[i] = 1;
+		}
+		ituWidgetSetCustomData(coverflow, customdata);
+	}
+	else
+	{
+		int* newdata = malloc(sizeof(int)* ITU_ACTIONS_SIZE);
+		memset(newdata, 0, sizeof(int)* ITU_ACTIONS_SIZE);
+		newdata[0] = 1;
+		ituWidgetSetCustomData(coverflow, newdata);
+	}
+
+	widget->flags |= ITU_TOUCHABLE;
+
+	if (no_queue)
+	{
+		if (coverflow->coverFlowFlags & ITU_COVERFLOW_VERTICAL)
+			ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDEUP, 0, widget->rect.x, widget->rect.y);
+		else
+			ituWidgetUpdate(widget, ITU_EVENT_TOUCHSLIDELEFT, 0, widget->rect.x, widget->rect.y);
+	}
 
     if ((oldFlags & ITU_TOUCHABLE) == 0)
         widget->flags &= ~ITU_TOUCHABLE;
