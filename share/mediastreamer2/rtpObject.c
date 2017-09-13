@@ -237,7 +237,8 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 	static int RecvTimeOut = 0;
 	struct sockaddr_in remote_addr;
 	int len = sizeof(struct sockaddr_in);
-
+	TRegisiterDev * reg_dev;
+	reg_dev = protocol->getRegistDev();
 	//如果IP不对，丢弃该包
 	for(i=0;i<MAX_TIMEOUT_CNT;i++) {
 		Pos = udpReciveBuffer(socket,pBuf,rtp[theConfig.protocol].body_size,(struct sockaddr*)&remote_addr,&len,time_out);
@@ -250,7 +251,7 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 		if(theConfig.master_ip[0] == 0) {
 			int k;
 			for(k=0; k<MAXFJCOUNT; k++) {
-				if(Public.RegDev[k].bTalk && (Public.RegDev[k].dwIP == RecvIP)) {
+				if(reg_dev[k].bTalk && (reg_dev[k].dwIP == RecvIP)) {
 					udpSendBuffer(socket,ip,8800,pBuf,Pos);
 					break;
 				}
@@ -286,8 +287,8 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 		//转发门口机发的数据到分机
 		int k;
 		for(k=0; k<MAXFJCOUNT; k++) {
-			if(Public.RegDev[k].bCalling)
-				udpSendBuffer(socket,Public.RegDev[k].IP,8800,pBuf,Pos);
+			if(reg_dev[k].bCalling)
+				udpSendBuffer(socket,reg_dev[k].IP,8800,pBuf,Pos);
 
 		}
 
@@ -312,7 +313,7 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 				if(theConfig.master_ip[0] == 0) {
 					int k;
 					for(k=0; k<MAXFJCOUNT; k++) {
-						if(Public.RegDev[k].bTalk && (Public.RegDev[k].dwIP == RecvIP2)) {
+						if(reg_dev[k].bTalk && (reg_dev[k].dwIP == RecvIP2)) {
 							udpSendBuffer(socket,ip,8800,cTmpBuf,Len);
 							break;
 						}
@@ -343,8 +344,8 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 			// 转发门口机的数据到分机
 			int k;
 			for(k=0; k<MAXFJCOUNT; k++) {
-				if(Public.RegDev[k].bCalling)
-					udpSendBuffer(socket,Public.RegDev[k].IP,8800,cTmpBuf,Len);
+				if(reg_dev[k].bCalling)
+					udpSendBuffer(socket,reg_dev[k].IP,8800,cTmpBuf,Len);
 
 			}
 			if(Len > rtp[theConfig.protocol].head_size)
@@ -360,8 +361,8 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 		//转发门口机发的数据到分机
 		int k;
 		for(k=0; k<MAXFJCOUNT; k++) {
-			if(Public.RegDev[k].bCalling)
-				udpSendBuffer(socket,Public.RegDev[k].IP,8800,pBuf,Pos);
+			if(reg_dev[k].bCalling)
+				udpSendBuffer(socket,reg_dev[k].IP,8800,pBuf,Pos);
 
 		}
 
@@ -386,7 +387,7 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 				if(theConfig.master_ip[0] == 0) {
 					int k;
 					for(k=0; k<MAXFJCOUNT; k++) {
-						if(Public.RegDev[k].bTalk && (Public.RegDev[k].dwIP == RecvIP2)) {
+						if(reg_dev[k].bTalk && (reg_dev[k].dwIP == RecvIP2)) {
 							udpSendBuffer(socket,ip,8800,cTmpBuf,Len);
 							break;
 						}
@@ -417,8 +418,8 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 			// 转发门口机的数据到分机
 			int k;
 			for(k=0; k<MAXFJCOUNT; k++) {
-				if(Public.RegDev[k].bCalling)
-					udpSendBuffer(socket,Public.RegDev[k].IP,8800,cTmpBuf,Len);
+				if(reg_dev[k].bCalling)
+					udpSendBuffer(socket,reg_dev[k].IP,8800,cTmpBuf,Len);
 
 			}
 			if(Len > rtp[theConfig.protocol].head_size)
