@@ -8,6 +8,9 @@
     )
 	
 if (DEFINED CFG_BUILD_TC)
+	add_library(mediastreamer STATIC
+		rtpObject.c
+		)
     add_definitions(
         -DBUILD_TC
         )
@@ -200,7 +203,6 @@ add_library(mediastreamer STATIC
 if (DEFINED CFG_BUILD_LEAF)
 	add_library(mediastreamer STATIC
 		mediastream_udp.c
-		rtpObject.c
 		msudp.c
 		)
 endif()

@@ -212,14 +212,14 @@ void leaf_stop_media_streams(LeafCall *call) {
     pthread_mutex_unlock(&Leaf_mutex);
 }
 
-void leaf_start_ipcam_stream(LeafCall *call, const char *addr, int port) {
+void leaf_start_ipcam_stream(LeafCall *call, const char *addr,char *file_name, int port) {
     video_stream_set_direction (call->videostream, VideoStreamRecvOnly);
     video_stream_udp_start(call->videostream,
 		addr, port,
 		FALSE, TRUE, NULL);
 #ifdef CFG_RTSP_CLIENT_ENABLE
     SetRTSPClientMode(IPCAM_MODE);
-    startRTSPClient(addr, port, NULL, NULL);
+    startRTSPClient(addr, port, file_name, NULL);
 #endif
 }
 

@@ -554,12 +554,15 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     if (captcard!=NULL) stream->soundread=ms_snd_card_create_reader(captcard);
     if (playcard!=NULL) stream->soundwrite=ms_snd_card_create_writer(playcard);
 
-    // stream->ms.encoder=ms_filter_create_encoder("PCMU");
-    // stream->ms.decoder=ms_filter_create_decoder("PCMU");
+#ifdef BUILD_TC
 	if (theConfig.protocol != PROTOCOL_BZ) {
 		stream->ms.encoder=ms_filter_new(MS_ADPCM_ENC_ID); //PCMU換成ADPCM filter
 		stream->ms.decoder=ms_filter_new(MS_ADPCM_DEC_ID); //PCMU換成ADPCM filter
 	}
+#else
+	stream->ms.encoder=ms_filter_create_encoder("PCMU");
+	stream->ms.decoder=ms_filter_create_decoder("PCMU");
+#endif
     if(stream->use_mix)
         stream->mixvoice=ms_filter_new(MS_MIXVOICE_ID);
     if(stream->use_volsend)

@@ -11,6 +11,43 @@
 static const char tableiconlistboxName[] = "ITUTableIconListBox";
 static bool bottom_touch = false;
 
+void TableIconListBox_ReduceItemCount(ITUWidget* widget, int NewCount)
+{
+	ITCTree*  thisNode;
+	ITCTree*  prevSibling;
+	int i, count = itcTreeGetChildCount(widget);
+
+	if ((NewCount < count) && (NewCount > 0))
+	{
+		for (i = 0; i < (count - NewCount); i++)
+		{
+			int target = itcTreeGetChildCount(widget) - 1;
+			thisNode = (ITCTree*)itcTreeGetChildAt(widget, target);
+
+			if (thisNode->parent == NULL)
+				return;
+
+			prevSibling = thisNode->parent->child;
+
+			if (prevSibling == thisNode)
+			{
+				// This is the first child node
+				thisNode->parent->child = thisNode->sibling;
+			}
+			else
+			{
+				// Find the previous sibling node
+				for (; prevSibling->sibling != thisNode;
+					prevSibling = prevSibling->sibling);
+
+					prevSibling->sibling = thisNode->sibling;
+			}
+
+			thisNode->parent = thisNode->sibling = NULL;
+		}
+	}
+}
+
 void ituTableIconListBoxExit(ITUWidget* widget)
 {
 	ITUTableIconListBox* tableiconlistbox = (ITUTableIconListBox*)widget;
@@ -238,13 +275,34 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 			{
 				if (tableiconlistbox->inc && !(widget->flags & ITU_BOUNCING))
 				{
+					int i = 0, fixy = 0, fy = 0;
+					int count = itcTreeGetChildCount(widget);
 					ITUWidget* child = (ITUWidget*)((ITCTree*)tableiconlistbox)->child;
+
 					if (child)
 						tableiconlistbox->touchOffset = child->rect.y;
 
+					for (i = 0; i < count; i++)
+					{
+						child = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
+						if ((child->rect.y < 0) && ((child->rect.y + child->rect.height) > 0))
+						{
+							if (tableiconlistbox->inc > 0)
+								fixy -= child->rect.y;
+							else
+								fixy -= (child->rect.y + child->rect.height);
+
+							i = count;
+						}
+					}
+
+					tableiconlistbox->touchY = y;
+					widget->flags |= ITU_DRAGGING;
+					ituScene->dragged = widget;
+
 					tableiconlistbox->frame = 0;
 					tableiconlistbox->inc = 0;
-
+					
                     ituExecActions((ITUWidget*)listbox, listbox->actions, ITU_EVENT_SYNC, (int)widget->name);
  				}
 				else
@@ -305,10 +363,13 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 			if ((widget->flags & ITU_DRAGGABLE) && (widget->flags & ITU_DRAGGING))
 			{
 				int topY, bottomY;
-				ITUWidget* child = (ITUWidget*)((ITCTree*)tableiconlistbox)->child;
+				ITUWidget* child = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, 0);
+
 				if (child)
 				{
 					int count = itcTreeGetChildCount(widget);
+					if (count > tableiconlistbox->listbox.itemCount)
+						count = tableiconlistbox->listbox.itemCount;
 
 					tableiconlistbox->touchOffset = child->rect.y;
 					topY = child->rect.y;
@@ -323,7 +384,8 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 				{
 					int check = (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)) - topY * (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)) / (widget->rect.height / 2);
 					tableiconlistbox->frame = (check >= 0)?(check):(0);
-					tableiconlistbox->inc = -(widget->rect.height / 2) * tableiconlistbox->slidePage * UNDRAGGING_DECAY / tableiconlistbox->totalframe;
+                    dist = tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY);
+                    tableiconlistbox->inc = (dist != 0) ? -(widget->rect.height / 2) / dist : -(widget->rect.height / 2);											
 					//printf("1: frame=%d topY=%d inc=%d\n", tableiconlistbox->frame, topY, tableiconlistbox->inc);
 					widget->flags |= ITU_UNDRAGGING;
 				}
@@ -331,10 +393,13 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 				{
 					bottom_touch = true;
 					tableiconlistbox->frame = bottomY * (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)) / (widget->rect.height / 2);
-					tableiconlistbox->inc = (widget->rect.height / 2) * tableiconlistbox->slidePage * UNDRAGGING_DECAY / tableiconlistbox->totalframe;
+                    dist = tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY);
+                    tableiconlistbox->inc = (dist != 0) ? (widget->rect.height / 2) / dist : (widget->rect.height / 2);											
 					//printf("2: frame=%d bottomY=%d inc=%d\n", tableiconlistbox->frame, bottomY, tableiconlistbox->inc);
 					widget->flags |= ITU_UNDRAGGING;
 				}
+				else
+					widget->flags |= ITU_UNDRAGGING;
 				ituScene->dragged = NULL;
 				widget->flags &= ~ITU_DRAGGING;
 				ituExecActions((ITUWidget*)listbox, listbox->actions, ITU_EVENT_SYNC, (int)widget->name);
@@ -505,6 +570,19 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 	}
 	else if (ev == ITU_EVENT_TIMER)
 	{
+		int currentcount = itcTreeGetChildCount(tableiconlistbox);
+
+		if (tableiconlistbox->listbox.itemCount < currentcount)
+		{
+			if (tableiconlistbox->listbox.itemCount > 0)
+			{
+				TableIconListBox_ReduceItemCount(tableiconlistbox, tableiconlistbox->listbox.itemCount);
+				ituWidgetUpdate(tableiconlistbox, ITU_EVENT_LOAD, 0, 0, 0);
+				ituWidgetUpdate(tableiconlistbox, ITU_EVENT_LAYOUT, 0, 0, 0);
+				return true;
+			}
+		}
+
 		if (tableiconlistbox->touchCount > 0)
 		{
 			int y, dist;
@@ -530,48 +608,181 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 		if (widget->flags & ITU_UNDRAGGING)
 		{
 			int i, count = itcTreeGetChildCount(tableiconlistbox);
+			ITUWidget* childfirst = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, 0);
+			ITUWidget* childlast = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, count - 1);
 
 			if (tableiconlistbox->inc > 0)
 			{
+				int fy = 0, fixy = 0;
+				int maxc = 0;
+
 				for (i = 0; i < count; ++i)
 				{
 					ITUWidget* child = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
-					int fy = 0 - child->rect.height * count + widget->rect.height / 2;
+					//maxc = widget->rect.height / child->rect.height;
+					maxc = (int)(round((double)widget->rect.height / child->rect.height));
 
-					fy += i * child->rect.height;
+					if (!(widget->flags & ITU_DRAGGABLE))
+					{
+						fy = 0 - (child->rect.height * (count - maxc));
 
-					if (bottom_touch)
-						fy += tableiconlistbox->inc * (tableiconlistbox->frame + 1) / 2;
+						fy += i * child->rect.height;
+					}
 					else
-						fy += tableiconlistbox->inc * tableiconlistbox->frame;
+					{
+						if ((childlast->rect.y + childlast->rect.height) <= widget->rect.height)//(bottom_touch)
+						{
+							fy = 0 - (child->rect.height * (count - maxc));
+							fy += i * child->rect.height;
+							fy += tableiconlistbox->inc *(tableiconlistbox->frame + 1) / tableiconlistbox->totalframe;
+						}
+						else if (childfirst->rect.y >= 0)
+						{
+							fy = i * child->rect.height;
+						}
+						else
+						{
+							if (fixy == 0)
+							{
+								int j = 0;
+								for (j = 0; j < count; ++j)
+								{
+									ITUWidget* cc = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, j);
+									if ((cc->rect.y < 0) && ((cc->rect.y + cc->rect.height) > 0))
+									{
+										fixy -= cc->rect.y;
+										j = count;
+									}
+								}
+							}
 
-					ituWidgetSetY(child, fy);
+							fy = child->rect.y + fixy;
+						}
+					}
+
+					if (count <= maxc)
+					{
+						fy = i * child->rect.height;
+					}
+					ituWidgetSetY(child, fy);//here
+					//printf("[TIMER]child %d, fy, %d, recth %d, inc %d\n", i, fy, child->rect.height, tablelistbox->inc);
 				}
+
 				if (bottom_touch)
 					bottom_touch = false;
 			}
-			else
+			else if (tableiconlistbox->inc < 0)
 			{
+				int fy = 0, fixy = 0;
+				int maxc = 0;
+
 				for (i = 0; i < count; ++i)
 				{
 					ITUWidget* child = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
-					int fy = i * child->rect.height + widget->rect.height / 2;
+					//maxc = widget->rect.height / child->rect.height;
+					maxc = (int)(round((double)widget->rect.height / child->rect.height));
 
-					fy += tableiconlistbox->inc * tableiconlistbox->frame;
+					if (!(widget->flags & ITU_DRAGGABLE))
+					{
+						fy = 0 - (child->rect.height * (count - maxc));
 
+						fy += i * child->rect.height;
+					}
+					else
+					{
+						if ((childlast->rect.y + childlast->rect.height) <= widget->rect.height)//(bottom_touch)
+						{
+							fy = 0 - (child->rect.height * (count - maxc));
+							fy += i * child->rect.height;
+							fy += tableiconlistbox->inc *(tableiconlistbox->frame + 1) / tableiconlistbox->totalframe;
+						}
+						else if (childfirst->rect.y >= 0)
+						{
+							fy = i * child->rect.height;
+						}
+						else
+						{
+							if (fixy == 0)
+							{
+								int j = 0;
+								for (j = 0; j < count; ++j)
+								{
+									ITUWidget* cc = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, j);
+									if ((cc->rect.y < 0) && ((cc->rect.y + cc->rect.height) > 0))
+									{
+										fixy -= cc->rect.y;
+										j = count;
+									}
+								}
+							}
+
+							fy = child->rect.y + fixy;
+						}
+					}
+					//int fy = i * child->rect.height;
 					ituWidgetSetY(child, fy);
+					//printf("[fy2] %d\n", fy);
 				}
+				result = true;
+			}
+			else
+			{
+				int fixy = 0;
+
+				for (i = 0; i < count; ++i)
+				{
+					ITUWidget* child = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
+
+					if (child->rect.y > 0)
+					{
+						fixy = child->rect.y;
+						i = count;
+						continue;
+					}
+					else if ((child->rect.y + child->rect.height) >= 0)
+					{
+						fixy = (child->rect.y + child->rect.height);
+						i = count;
+						continue;
+					}
+				}
+
+				if (fixy > 0)
+				{
+					for (i = 0; i < count; ++i)
+					{
+						ITUWidget* child = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
+						ituWidgetSetY(child, child->rect.y - fixy);
+					}
+				}
+
+				tableiconlistbox->frame = tableiconlistbox->totalframe;
 			}
 			tableiconlistbox->frame++;
 
 			if (tableiconlistbox->frame > (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)))
 			{
-				ITUWidget* child = (ITUWidget*)((ITCTree*)tableiconlistbox)->child;
+				int maxc = (int)(round((double)widget->rect.height / childfirst->rect.height));
 
-				if (child)
-					tableiconlistbox->touchOffset = child->rect.y;
+				if ((childlast->rect.y + childlast->rect.height) <= widget->rect.height)//(bottom_touch)
+				{
+					for (i = 0; i < count; i++)
+					{
+						ITUWidget* cc = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
+						int fy = 0 - (cc->rect.height * (count - maxc));
+						fy += i * cc->rect.height;
+						ituWidgetSetY(cc, fy);
+					}
+
+					tableiconlistbox->touchOffset = childfirst->rect.y;
+				}
 				else
-					tableiconlistbox->touchOffset = 0;
+				{
+					if (childfirst)
+						tableiconlistbox->touchOffset = childfirst->rect.y;
+					else
+						tableiconlistbox->touchOffset = 0;
+				}
 
 				tableiconlistbox->frame = 0;
 				tableiconlistbox->inc = 0;
@@ -598,14 +809,16 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 			if (topY > widget->rect.height / 2)
 			{
 				tableiconlistbox->frame = (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)) - topY * (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)) / (widget->rect.height / 2);
-				tableiconlistbox->inc = -(widget->rect.height / 2) * tableiconlistbox->slidePage * UNDRAGGING_DECAY / tableiconlistbox->totalframe;
+                i = tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY);
+                tableiconlistbox->inc = (i != 0) ? -(widget->rect.height / 2) / i : -(widget->rect.height / 2);
 				//printf("3: frame=%d topY=%d inc=%d\n", tableiconlistbox->frame, topY, tableiconlistbox->inc);
 				widget->flags |= ITU_UNDRAGGING;
 			}
 			else if (bottomY < widget->rect.height / 2)
 			{
 				tableiconlistbox->frame = bottomY * (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)) / (widget->rect.height / 2);
-				tableiconlistbox->inc = (widget->rect.height / 2) * tableiconlistbox->slidePage * UNDRAGGING_DECAY / tableiconlistbox->totalframe;
+                i = tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY);
+                tableiconlistbox->inc = (i != 0) ? (widget->rect.height / 2) / i : (widget->rect.height / 2);
 				//printf("4: frame=%d bottomY=%d inc=%d\n", tableiconlistbox->frame, bottomY, tableiconlistbox->inc);
 				widget->flags |= ITU_UNDRAGGING;
 			}
@@ -632,19 +845,46 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 					if (topY > 0)
 					{
 						tableiconlistbox->frame = (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)) - topY * (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)) / (widget->rect.height / 2);
-						tableiconlistbox->inc = -(widget->rect.height / 2) * tableiconlistbox->slidePage * UNDRAGGING_DECAY / tableiconlistbox->totalframe;
+                        i = tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY);
+                        tableiconlistbox->inc = (i != 0) ? -(widget->rect.height / 2) / i : -(widget->rect.height / 2);						
 						//printf("5: frame=%d topY=%d inc=%d\n", tableiconlistbox->frame, topY, tableiconlistbox->inc);
 						widget->flags |= ITU_UNDRAGGING;
 					}
 					else if (bottomY < widget->rect.height)
 					{
 						tableiconlistbox->frame = bottomY * (tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY)) / (widget->rect.height / 2);
-						tableiconlistbox->inc = (widget->rect.height / 2) * tableiconlistbox->slidePage * UNDRAGGING_DECAY / tableiconlistbox->totalframe;
+                        i = tableiconlistbox->totalframe / (tableiconlistbox->slidePage * UNDRAGGING_DECAY);
+                        tableiconlistbox->inc = (i != 0) ? (widget->rect.height / 2) / i : (widget->rect.height / 2);						
 						//printf("6: frame=%d bottomY=%d inc=%d\n", tableiconlistbox->frame, bottomY, tableiconlistbox->inc);
 						widget->flags |= ITU_UNDRAGGING;
 					}
 					else
 					{
+						//fix the slide self stop position
+						int fixy = 0;
+
+						for (i = 0; i < count; i++)
+						{
+							ITUWidget* cc = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
+							if ((cc->rect.y < 0) && ((cc->rect.y + cc->rect.height) > 0))
+							{
+								if (tableiconlistbox->inc > 0)
+									fixy = 0 - cc->rect.y;
+								else
+									fixy = 0 - (cc->rect.y + cc->rect.height);
+								i = count;
+							}
+						}
+
+						if (fixy != 0)
+						{
+							for (i = 0; i < count; i++)
+							{
+								ITUWidget* cc = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
+								ituWidgetSetY(cc, cc->rect.y + fixy);
+							}
+						}
+
 						if (child)
 							tableiconlistbox->touchOffset = child->rect.y;
 
