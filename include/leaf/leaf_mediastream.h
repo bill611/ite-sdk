@@ -94,7 +94,7 @@ void leaf_init_audio_streams (LeafCall *call, unsigned short port);
 void leaf_start_video_stream(LeafCall *call, const char *addr, int port);
 void leaf_start_audio_stream(LeafCall *call, const char *addr, int port);
 void leaf_stop_media_streams(LeafCall *call);
-void leaf_start_ipcam_stream(LeafCall *call, const char *addr, int port);
+void leaf_start_ipcam_stream(LeafCall *call, const char *addr, char *file,int port);
 void leaf_stop_ipcam_stream(LeafCall *call);
 int leaf_take_video_snapshot(LeafCall *call, char *file,FileWriterCallback func );
 int leaf_show_snapshot(LeafCall *call, int width,int height,char *file);

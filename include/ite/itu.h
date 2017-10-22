@@ -35,7 +35,7 @@ extern "C"
 #define ITU_EXTENSIONS_SIZE         32  ///< Maximum size of extensions in ITUMediaFileListBox, in bytes.
 #define ITU_MEDIA_FILE_MAX_COUNT    999 ///< Maximum file count of media file list box.
 #define ITU_DRAG_DISTANCE           22  ///< Distance to start dragging, in pixels.
-#define ITU_WIDGET_CHILD_MAX        128 ///< Maximum count of children.
+#define ITU_WIDGET_CHILD_MAX        1000 ///< Maximum count of children.
 #define ITU_EFFECT_STEP_COUNT       10  ///< Default effect steps.
 #define ITU_FREETYPE_MAX_FONTS      16  ///< Maximum count of loaded fonts.
 
