@@ -252,7 +252,7 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 
 			//if (topY <= widget->rect.height / 2 &&
 			//	bottomY >= widget->rect.height / 2)
-			if (topY <= BOUNDARY_TOR && bottomY >= (widget->rect.height - BOUNDARY_TOR))
+			if (topY <= BOUNDARY_TOR && bottomY >= (widget->rect.height/2 - BOUNDARY_TOR))
 			{
 				for (i = 0; i < count; ++i)
 				{
@@ -769,7 +769,9 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 					for (i = 0; i < count; i++)
 					{
 						ITUWidget* cc = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
-						int fy = 0 - (cc->rect.height * (count - maxc));
+						int fy = 0;
+						if (count >= maxc)
+							fy = 0 - (cc->rect.height * (count - maxc));
 						fy += i * cc->rect.height;
 						ituWidgetSetY(cc, fy);
 					}
@@ -798,8 +800,18 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 
 			if (child)
 			{
+				int maxc = (int)(round((double)widget->rect.height / child->rect.height));
 				topY = child->rect.y;
 				bottomY = topY + child->rect.height * count;
+
+				if (count <= maxc) //fix for too less item
+				{
+					child->rect.y = 0;
+					topY = 0;
+					bottomY = widget->rect.height;
+					tableiconlistbox->frame = tableiconlistbox->totalframe;
+					tableiconlistbox->inc = 0;
+				}
 			}
 			else
 			{

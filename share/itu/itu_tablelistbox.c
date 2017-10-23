@@ -600,7 +600,9 @@ bool ituTableListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, i
 					for (i = 0; i < count; i++)
 					{
 						ITUWidget* cc = (ITUWidget*)itcTreeGetChildAt(tablelistbox, i);
-						int fy = 0 - (cc->rect.height * (count - maxc));
+						int fy = 0;
+						if (count >= maxc)
+							fy = 0 - (cc->rect.height * (count - maxc));
 						fy += i * cc->rect.height;
 						ituWidgetSetY(cc, fy);
 					}
@@ -631,8 +633,18 @@ bool ituTableListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, i
 
             if (child)
             {
+				int maxc = (int)(round((double)widget->rect.height / child->rect.height));
                 topY = child->rect.y;
                 bottomY = topY + child->rect.height * count;
+
+				if (count <= maxc) //fix for too less item
+				{
+					child->rect.y = 0;
+					topY = 0;
+					bottomY = widget->rect.height;
+					tablelistbox->frame = tablelistbox->totalframe;
+					tablelistbox->inc = 0;
+				}
             }
             else
             {
