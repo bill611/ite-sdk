@@ -555,7 +555,7 @@ int audio_stream_udp_start_full(AudioStream *stream, const char *rem_ip,int rem_
     if (playcard!=NULL) stream->soundwrite=ms_snd_card_create_writer(playcard);
 
 #ifdef BUILD_TC
-	if (theConfig.protocol != PROTOCOL_BZ) {
+	if (isProtocolBZ() == 0) {
 		stream->ms.encoder=ms_filter_new(MS_ADPCM_ENC_ID); //PCMU換成ADPCM filter
 		stream->ms.decoder=ms_filter_new(MS_ADPCM_DEC_ID); //PCMU換成ADPCM filter
 	}
