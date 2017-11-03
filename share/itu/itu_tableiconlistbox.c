@@ -5,8 +5,8 @@
 #include "ite/itu.h"
 #include "itu_cfg.h"
 
-#define UNDRAGGING_DECAY 10
-#define BOUNDARY_TOR 10
+#define UNDRAGGING_DECAY 20//10
+#define BOUNDARY_TOR 3//30
 
 static const char tableiconlistboxName[] = "ITUTableIconListBox";
 static bool bottom_touch = false;
@@ -240,6 +240,8 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 			ITUWidget* child = (ITUWidget*)((ITCTree*)tableiconlistbox)->child;
 			if (child)
 			{
+				if (count > tableiconlistbox->listbox.itemCount)
+					count = tableiconlistbox->listbox.itemCount;
 				topY = child->rect.y;
 				bottomY = topY + child->rect.height * count;
 			}
@@ -537,8 +539,6 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 				}
 				else // if (ev == ITU_EVENT_TOUCHSLIDEDOWN)
 				{
-					int i, count = itcTreeGetChildCount(tableiconlistbox);
-
 					if (widget->flags & ITU_DRAGGING)
 					{
 						widget->flags &= ~ITU_DRAGGING;
@@ -546,19 +546,8 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 						tableiconlistbox->inc = 0;
 					}
 
-					for (i = 0; i < count; ++i)
-					{
-						ITUWidget* child = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, i);
-						int fy = 0 - child->rect.height * count;
-
-						fy += i * child->rect.height;
-
-						if (tableiconlistbox->inc == 0)
-							tableiconlistbox->inc = widget->rect.height * tableiconlistbox->slidePage;
-
-						fy += tableiconlistbox->inc;
-						ituWidgetSetY(child, fy);
-					}
+                    if (tableiconlistbox->inc == 0)
+                        tableiconlistbox->inc = widget->rect.height * tableiconlistbox->slidePage;
 
 					tableiconlistbox->frame = 1;
 					ituExecActions((ITUWidget*)listbox, listbox->actions, ITU_EVENT_TOUCHSLIDEDOWN, 0);
@@ -576,7 +565,7 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 		{
 			if (tableiconlistbox->listbox.itemCount > 0)
 			{
-				TableIconListBox_ReduceItemCount(tableiconlistbox, tableiconlistbox->listbox.itemCount);
+				TableIconListBox_ReduceItemCount((ITUWidget*)tableiconlistbox, tableiconlistbox->listbox.itemCount);
 				ituWidgetUpdate(tableiconlistbox, ITU_EVENT_LOAD, 0, 0, 0);
 				ituWidgetUpdate(tableiconlistbox, ITU_EVENT_LAYOUT, 0, 0, 0);
 				return true;
@@ -610,6 +599,8 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 			int i, count = itcTreeGetChildCount(tableiconlistbox);
 			ITUWidget* childfirst = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, 0);
 			ITUWidget* childlast = (ITUWidget*)itcTreeGetChildAt(tableiconlistbox, count - 1);
+            if (count > tableiconlistbox->listbox.itemCount)
+                count = tableiconlistbox->listbox.itemCount;
 
 			if (tableiconlistbox->inc > 0)
 			{
@@ -797,6 +788,8 @@ bool ituTableIconListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg
 			int i, count = itcTreeGetChildCount(tableiconlistbox);
 			int topY, bottomY;
 			ITUWidget* child = (ITUWidget*)((ITCTree*)tableiconlistbox)->child;
+			if (count > tableiconlistbox->listbox.itemCount)
+				count = tableiconlistbox->listbox.itemCount;
 
 			if (child)
 			{

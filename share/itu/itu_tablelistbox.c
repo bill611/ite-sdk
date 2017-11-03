@@ -225,7 +225,8 @@ bool ituTableListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, i
 
                 if (topY > 0)
                 {
-                    tablelistbox->frame = (tablelistbox->totalframe / (tablelistbox->slidePage * UNDRAGGING_DECAY)) - topY * (tablelistbox->totalframe / (tablelistbox->slidePage * UNDRAGGING_DECAY)) / (widget->rect.height / 2);
+                    int check = (tablelistbox->totalframe / (tablelistbox->slidePage * UNDRAGGING_DECAY)) - topY * (tablelistbox->totalframe / (tablelistbox->slidePage * UNDRAGGING_DECAY)) / (widget->rect.height / 2);
+					tablelistbox->frame = (check >= 0)?(check):(0);
                     dist = tablelistbox->totalframe / (tablelistbox->slidePage * UNDRAGGING_DECAY);
                     tablelistbox->inc = (dist != 0) ? -(widget->rect.height / 2) / dist : -(widget->rect.height / 2);											
                     //printf("1: frame=%d topY=%d inc=%d\n", tablelistbox->frame, topY, tablelistbox->inc);
@@ -366,8 +367,6 @@ bool ituTableListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, i
                 }
                 else // if (ev == ITU_EVENT_TOUCHSLIDEDOWN)
                 {
-                    int i, count = itcTreeGetChildCount(tablelistbox);
-
                     if (widget->flags & ITU_DRAGGING)
                     {
                         widget->flags &= ~ITU_DRAGGING;
@@ -375,18 +374,8 @@ bool ituTableListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, i
                         tablelistbox->inc = 0;
                     }
 
-                    for (i = 0; i < count; ++i)
-                    {
-                        ITUWidget* child = (ITUWidget*)itcTreeGetChildAt(tablelistbox, i);
-                        int fy = 0 - child->rect.height * count;
-                        fy += i * child->rect.height;
-
-                        if (tablelistbox->inc == 0)
-                            tablelistbox->inc = widget->rect.height * tablelistbox->slidePage;
-
-                        fy += tablelistbox->inc;
-                        ituWidgetSetY(child, fy);
-                    }
+                    if (tablelistbox->inc == 0)
+                        tablelistbox->inc = widget->rect.height * tablelistbox->slidePage;
 
                     tablelistbox->frame = 1;
                     ituExecActions((ITUWidget*)listbox, listbox->actions, ITU_EVENT_TOUCHSLIDEDOWN, 0);
@@ -404,7 +393,7 @@ bool ituTableListBoxUpdate(ITUWidget* widget, ITUEvent ev, int arg1, int arg2, i
 		{
 			if (tablelistbox->listbox.itemCount > 0)
 			{
-				TableListBox_ReduceItemCount(tablelistbox, tablelistbox->listbox.itemCount);
+                TableListBox_ReduceItemCount((ITUWidget*)tablelistbox, tablelistbox->listbox.itemCount);
 				ituWidgetUpdate(tablelistbox, ITU_EVENT_LOAD, 0, 0, 0);
 				ituWidgetUpdate(tablelistbox, ITU_EVENT_LAYOUT, 0, 0, 0);
 				return true;
