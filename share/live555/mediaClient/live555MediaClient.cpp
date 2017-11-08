@@ -308,7 +308,7 @@ void setupNextSubsession(RTSPClient* rtspClient) {
 	  << "\" subsession (client ports " << scs.subsession->clientPortNum() << "-" << scs.subsession->clientPortNum()+1 << ")\n";
 
       // Continue setting up this subsession, by sending a RTSP "SETUP" command:
-      rtspClient->sendSetupCommand(*scs.subsession, continueAfterSETUP);
+      rtspClient->sendSetupCommand(*scs.subsession, continueAfterSETUP, false, true);
     }
     return;
   }
