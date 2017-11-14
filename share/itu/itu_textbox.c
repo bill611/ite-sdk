@@ -694,8 +694,21 @@ void ituTextBoxDraw(ITUWidget* widget, ITUSurface* dest, int x, int y, uint8_t a
         ituWidgetDrawImpl(widget, dest, x, y, alpha);
         free(buf);
     }
+    else if (textbox->textboxFlags & ITU_TEXTBOX_CURSOR)
+    {
+        ITURectangle* rect = (ITURectangle*)&widget->rect;
+        int destx, desty;
+
+        destx = rect->x + x;
+        desty = rect->y + y;
+
+        if (textbox->cursorIndex == 0)
+            ituColorFill(dest, destx, desty, 1, text->fontHeight, &widget->color);
+    }
     else
+    {
         ituTextDraw(widget, dest, x + borderSize, y, alpha);
+    }
 
     if (ituWidgetIsActive(widget))
     {
