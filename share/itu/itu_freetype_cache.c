@@ -439,10 +439,10 @@ int M2dFtDrawText(ITUSurface* surf, int x, int y, const char* text)
 
             x_advance += sbit->xadvance;
 			// xb add 20161129
-			if ((x_advance + sbit->xadvance) > surf->clipping.width) {
-				x_advance = (surf->clipping.width - (sbit->xadvance * (len - i - 1))) / 2 ;
-				y += tfont->scaler.height;
-			}
+			// if ((x_advance + sbit->xadvance) > surf->clipping.width) {
+				// x_advance = (surf->clipping.width - (sbit->xadvance * (len - i - 1))) / 2 ;
+				// y += tfont->scaler.height;
+			// }
         }
         else
         {

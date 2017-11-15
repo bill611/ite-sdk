@@ -140,9 +140,9 @@ void ituTextDraw(ITUWidget* widget, ITUSurface* dest, int x, int y, uint8_t alph
         {
             ituFtGetTextDimension(string, &w, &h);
 			// xb add 20161129
-			if (rect->width < w) {
-				w = rect->width;
-			}
+			// if (rect->width < w) {
+				// w = rect->width;
+			// }
             destx += rect->width / 2 - w / 2;
         }
         else if (text->layout == ITU_LAYOUT_TOP_RIGHT)
