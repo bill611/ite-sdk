@@ -70,6 +70,11 @@ if (DEFINED CFG_TC3100_18D1)
 		-DTC3100_18D1
         )
 endif()
+if (DEFINED CFG_TC3000_Z1_QHSJXC)
+    add_definitions(
+        -DTC3000_Z1
+        )
+endif()
 
 if (DEFINED CFG_BUILD_LEAF)
 	add_definitions(
