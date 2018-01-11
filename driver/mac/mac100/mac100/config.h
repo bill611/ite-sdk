@@ -56,7 +56,7 @@ extern "C" {
 #define MAC_BASE	 ITH_ETHERNET_BASE
 
 
-#define RX_QUEUE_ENTRIES	128  	/* must be power of 2 */
+#define RX_QUEUE_ENTRIES	512  	/* must be power of 2 */
 #define TX_QUEUE_ENTRIES	128	    /* must be power of 2 */
 
 #define MAX_PKT_SIZE		1518

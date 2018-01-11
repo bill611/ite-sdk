@@ -58,6 +58,7 @@ static void StatsHandler(timer_t timerid, int arg)
 
 #if defined(CFG_DBG_STATS_TASK_LIST) && defined(__OPENRTOS__)
     // task list
+    printf("free memory:%d\n",itpGetFreeHeapSize() );
     puts("TASKLIST:");
     vTaskList(buf);
     printf(buf);
