@@ -2831,7 +2831,7 @@ static int lpc_cmd_castor3_play_voicesound(LinphoneCore *lc, char *args)
         AudioStream *st;
         if (call && (st=call->audiostream)){
             n=sscanf(args, "%s %li", file_path, &duration);
-            voice_mix_flag (st,file_path);
+            voice_mix_flag (st,file_path,FALSE);
         }
         return 1;
     }

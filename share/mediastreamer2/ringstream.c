@@ -190,8 +190,8 @@ RingStream * ring_start_with_cb(const char *file,int interval,MSSndCard *sndcard
 #endif 
 
     stream->source=ms_filter_new(MS_FILE_PLAYER_ID);    
-   
-    //stream->gendtmf=ms_filter_new(MS_DTMF_GEN_ID);
+    //stream->gendtmf=ms_filter_new(MS_MIXVOICE_ID);
+    stream->mixer = ms_filter_new(MS_MIXVOICE_ID);
     stream->sndwrite=ms_snd_card_create_writer(sndcard);
 
     if (file){
@@ -220,11 +220,13 @@ RingStream * ring_start_with_cb(const char *file,int interval,MSSndCard *sndcard
         ms_filter_call_method(stream->gendtmf,MS_FILTER_SET_NCHANNELS,&tmp);
     ms_filter_call_method(stream->sndwrite,MS_FILTER_SET_NCHANNELS,&tmp);
     
-    if (func!=NULL && interval == -1){//set callback func to detect stop
+    if (interval == -1){//set callback func to detect stop
         ms_filter_call_method(stream->source,MS_FILTER_GET_DATA_LENGTH,&tmp);
         ms_filter_call_method(stream->sndwrite,MS_FILTER_SET_DATALENGTH,&tmp);
-        ms_filter_set_notify_callback(stream->sndwrite,func,user_data);
     }
+    
+    if(func!=NULL)
+        ms_filter_set_notify_callback(stream->sndwrite,func,user_data);
 
     
     stream->ticker=ms_ticker_new();
@@ -239,6 +241,8 @@ RingStream * ring_start_with_cb(const char *file,int interval,MSSndCard *sndcard
         ms_connection_helper_link(&h,stream->gendtmf,0,0);
     if (stream->write_resampler)
         ms_connection_helper_link(&h,stream->write_resampler,0,0);
+    if (stream->mixer)
+        ms_connection_helper_link(&h,stream->mixer,0,0);
     ms_connection_helper_link(&h,stream->sndwrite,0,-1);
     ms_ticker_attach(stream->ticker,stream->source);
 
@@ -292,12 +296,18 @@ void ring_stop(RingStream *stream){
         ms_connection_helper_unlink(&h,stream->gendtmf,0,0);
     if (stream->write_resampler)
         ms_connection_helper_unlink(&h,stream->write_resampler,0,0);
+    if (stream->mixer)
+        ms_connection_helper_unlink(&h,stream->mixer,0,0);
     ms_connection_helper_unlink(&h,stream->sndwrite,0,-1);
 
     ms_ticker_destroy(stream->ticker);
     ms_filter_destroy(stream->source);
     if (stream->gendtmf)
         ms_filter_destroy(stream->gendtmf);
+    if (stream->write_resampler)
+        ms_filter_destroy(stream->write_resampler);
+    if (stream->mixer)
+        ms_filter_destroy(stream->mixer);
     ms_filter_destroy(stream->sndwrite);
     ms_free(stream);
 #ifdef _WIN32_WCE
@@ -305,4 +315,19 @@ void ring_stop(RingStream *stream){
     ms_sleep(1);
 #endif
 
+}
+
+void ring_mix_pcm(RingStream* stream,char *file,bool_t loop)
+{
+    printf("mix file : %s\n",file);
+    if(stream->mixer){
+        ms_filter_call_method(stream->mixer,MS_WAV_FILE_OPEN,(void*)file);
+        ms_filter_call_method(stream->mixer,MS_MIXVOISE_SET_LOOP,&loop); 
+    }
+}
+
+void ring_set_mix_level(RingStream* stream,float level)
+{
+    if(stream->mixer)
+        ms_filter_call_method(stream->mixer,MS_MIXVOISE_SET_LEVEL,&level); 
 }

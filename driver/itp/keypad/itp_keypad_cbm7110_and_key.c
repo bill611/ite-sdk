@@ -74,6 +74,7 @@ static	uint8_t		g_kpI2cPort = IIC_PORT_0;
 
 static const uint8_t single_buf[10]  = {0,1,0,1,0,1,0,0,1,1};
 
+static const unsigned int kpGpioTable[] = { 87 }; // gpio87 目前写死，后续有需要再加入配置文件
 /**************************************************************************
  ** private function                                                      **
  ***************************************************************************/
@@ -213,6 +214,7 @@ static uint8_t _tanslateTouchValue(uint16_t value, uint8_t totalKeyNum)
 
 int itpKeypadProbe(void)
 {
+	int touch_result = 1;
 	static int init_interval = 0;
 	unsigned int i;
 	uint16_t value=0;
@@ -248,22 +250,50 @@ int itpKeypadProbe(void)
 	} else {
 		gTocuhDown = 0;
 		gLastIndex = 0xFF;
-		return -1;
+		touch_result = 0;
+		// return -1;
 	}
 
 	pthread_mutex_unlock(&keypad_mutex);
 
-	index = _tanslateTouchValue(value, gTotalTouchKeyNum);
-	if(index==0xFF)
-		return -1;
+	if (touch_result) {
+		index = _tanslateTouchValue(value, gTotalTouchKeyNum);
+		if(index==0xFF) {
+			touch_result = 0;
+			// return -1;
+		}
 
-	if(!kpIntr) {
-		if(gTocuhDown && gLastIndex == index)
-			return -1;
-		gTocuhDown = 1;
-		gLastIndex = index;
+		if (touch_result) {
+			if(!kpIntr) {
+				if(gTocuhDown && gLastIndex == index) {
+					touch_result = 0;
+					// return -1;
+				}
+				if (touch_result) {
+					gTocuhDown = 1;
+					gLastIndex = index;
+				}
+			}
+		}
 	}
-	return (int)index;
+    for (i = 0; i < ITH_COUNT_OF(kpGpioTable); i++)
+    {
+        int pin = kpGpioTable[i];
+        uint32_t value = ithGpioGet(pin);
+        
+		pin %= 32;
+        // if (pin >= 32)
+            // pin -= 32;
+        
+		if ( (value & (0x1 << pin)) == 0 ) {
+			// printf("[%d]gpio:%d,value:%d\n", i,pin,value);
+			return 5;
+		}
+    }
+	if (touch_result)
+		return (int)index;
+	else
+		return -1;
 }
 
 void itpKeypadInit(void)
@@ -287,7 +317,15 @@ void itpKeypadInit(void)
 			g_1stTch = 0;
 		}
 	}
-
+    unsigned int i;
+    
+    for (i = 0; i < ITH_COUNT_OF(kpGpioTable); i++)
+    {
+		ithGpioCtrlEnable(kpGpioTable[i], ITH_GPIO_PULL_ENABLE);	//set GPIO pull enable & set pull-down
+		
+        ithGpioSetIn(kpGpioTable[i]);
+        ithGpioEnable(kpGpioTable[i]);
+    }
 
 }
 

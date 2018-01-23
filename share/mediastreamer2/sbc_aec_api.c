@@ -47,7 +47,8 @@ SbcAECState* AEC_ITE_INIT(int SAMPLINGRATE,int FRAMESIZE,int DELAY_MS,bool_t BYP
 #ifdef AEC_RUN_IN_ARM
     AEC_IN_ARM_INIT(&s->AECframesize);//AECframesize = 128
 #else
-    iteAecCommand(AEC_CMD_INIT, 0, 0, 0, 0, &s->AECframesize);//AECframesize=144  
+    iteAecCommand(AEC_CMD_INIT, 0, 0, 0, 0, &s->AECframesize);//AECframesize=144 
+    s->AECframesize = 144;
 #endif
     sbc_aec_start_hwthread(s);
     AEC_set_delay(s,DELAY_MS,FALSE);
@@ -108,6 +109,10 @@ void AEC_ITE_UNINIT(SbcAECState *s){
 
     if(!s->bypass_mode)
         sbc_aec_stop_hwthread(s);
+
+#ifdef AEC_RUN_IN_ARM 
+    AEC_IN_ARM_UNINIT();
+#endif    
     
     ms_bufferizer_uninit (&s->delayed_ref);
     ms_bufferizer_uninit (&s->echo);
@@ -142,28 +147,29 @@ int AEC_applyTX(SbcAECState *s,mblk_t *TxIn_echo,mblk_t *TxOut_clean,int nbytes)
         echo=allocb(nbytes,0); 
         if (ms_bufferizer_read(&s->echo,echo->b_wptr,nbytes)>=nbytes){
             int avail = 0;
-        
+            ms_mutex_lock(&s->mutex);
             if ((avail=ms_bufferizer_get_avail(&s->delayed_ref))<nbytes+(s->delay_ref_samples*2)){
                 mblk_t *refm;
                 /*we don't have enough to read in a reference signal buffer, inject silence instead*/
                 refm=allocb(nbytes,0);
                 memset(refm->b_wptr,0,nbytes);
                 refm->b_wptr+=nbytes;
-                ms_mutex_lock(&s->mutex);
+                
                 ms_bufferizer_put(&s->delayed_ref,refm);
                 //ms_bufferizer_put(&s->ref,dupmsg(refm));
-                ms_mutex_unlock(&s->mutex);
+                printf("add scilent\n");
             }        
-      
+            
+
             if (ms_bufferizer_read(&s->delayed_ref,ref->b_wptr,nbytes)==0){
                 printf("error Should never happen (delayed_ref) \n");
                 ms_fatal("Should never happen");
             }
-        
+
+            
             echo->b_wptr+=nbytes;
             ref->b_wptr+=nbytes;
         
-            ms_mutex_lock(&s->mutex);
             ms_bufferizer_put(&s->hw_echo,echo);//put to buffer
             ms_bufferizer_put(&s->hw_ref,ref);  //put to buffer
             ms_mutex_unlock(&s->mutex);        
@@ -174,16 +180,19 @@ int AEC_applyTX(SbcAECState *s,mblk_t *TxIn_echo,mblk_t *TxOut_clean,int nbytes)
         
         //printf("&s->delayed_ref = %d ",ms_bufferizer_get_avail(&s->delayed_ref));
         //printf("&s->echo = %d \n",ms_bufferizer_get_avail(&s->echo));
-        
+            ms_mutex_lock(&s->mutex); 
         if(ms_bufferizer_read(&s->hw_clean,TxOut_clean->b_wptr,nbytes)){
             TxOut_clean->b_wptr += nbytes;
+            ms_mutex_unlock(&s->mutex);            
             return nbytes;
         }else
+            ms_mutex_unlock(&s->mutex); 
             return 0;
         
     }else{
         memcpy(TxOut_clean->b_wptr,TxIn_echo->b_rptr,nbytes);
         TxOut_clean->b_wptr += nbytes;
+        if(TxIn_echo) freemsg(TxIn_echo);
         return nbytes;
     }
 
@@ -228,7 +237,10 @@ void AEC_set_delay(SbcAECState *s,int delay,bool_t setdelay_flag){
     m=allocb(delay_samples*2,0);
     memset(m->b_wptr,10,delay_samples*2);
     m->b_wptr+=delay_samples*2;
+    
+    ms_mutex_lock(&s->mutex);
     ms_bufferizer_put(&s->delayed_ref,m);
+    ms_mutex_unlock(&s->mutex);
 
     if(setdelay_flag)
         s->delayset = setdelay_flag;
@@ -323,5 +335,9 @@ static void AEC_IN_ARM_INIT(int *AECframesize){
     PBFDSR_Init(&anc_state);
     PBFDAF_Init(&aec_state); 
     *AECframesize = 128;
+}
+
+static void AEC_IN_ARM_UNINIT(){
+	return ;
 }
 #endif

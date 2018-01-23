@@ -109,14 +109,16 @@ void leaf_init_audio_streams (LeafCall *call, unsigned short port) {
 #ifdef ENABLE_AEC_ENABLE
     audiostream->use_ec=iniparser_getint(call->cfgini , "Esound:echocancellation", 1);//filter
 #endif
-    audiostream->use_mix=iniparser_getint(call->cfgini , "Esound:use_mix", 0);//filter;
+
     audiostream->use_volsend=iniparser_getint(call->cfgini , "Esound:use_volsend", 1);//filter
     audiostream->use_volrecv=iniparser_getint(call->cfgini , "Esound:use_volrecv", 1);;//filter
+    audiostream->use_mix=iniparser_getint(call->cfgini , "Esound:use_mix", 1);//filter;
     audiostream->play_dtmfs=FALSE;
     audiostream->use_gc=FALSE;
     audiostream->use_agc=FALSE;
 //    if(audiostream->use_ec)
-//        audiostream->ec=ms_filter_new(MS_SBC_AEC_ID);//creat    
+    audiostream->receive_graph=TRUE;
+    audiostream->send_graph=TRUE;
 }
 
 void leaf_start_video_stream(LeafCall *call, const char *addr, int port) {
@@ -152,6 +154,19 @@ void leaf_start_audio_stream(LeafCall *call, const char *addr, int port) {
 		AudioFromUdpRecv
     );
     audio_stream_post_configure(call->audiostream,call->audio_muted,call->cfgini);
+}
+
+void leaf_start_stream_mixsound(LeafCall *call,char *filename,bool loop){
+
+    if(call->audiostream){
+        voice_mix_flag(call->audiostream,filename,loop);
+        voice_set_mix_level(call->audiostream,0.1);
+    }
+    
+    if(call->ringstream){
+        voice_mix_flag(call->audiostream,filename,loop);
+        voice_set_mix_level(call->audiostream,0.1);        
+    }
 }
 
 void leaf_init_audio_taichanstream (LeafCall *call, unsigned short port) {

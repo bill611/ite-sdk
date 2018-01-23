@@ -93,6 +93,7 @@ void leaf_init_video_streams (LeafCall *call, unsigned short port);
 void leaf_init_audio_streams (LeafCall *call, unsigned short port);
 void leaf_start_video_stream(LeafCall *call, const char *addr, int port);
 void leaf_start_audio_stream(LeafCall *call, const char *addr, int port);
+void leaf_start_audio_stream_mixsound(LeafCall *call,char *filename,bool loop);
 void leaf_stop_media_streams(LeafCall *call);
 void leaf_start_ipcam_stream(LeafCall *call, const char *addr, char *file,int port);
 void leaf_stop_ipcam_stream(LeafCall *call);

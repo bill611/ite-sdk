@@ -75,6 +75,11 @@ if (DEFINED CFG_TC3000_Z1_QHSJXC)
         -DTC3000_Z1
         )
 endif()
+if (DEFINED CFG_TC3000_T1_XXML)
+    add_definitions(
+        -DTC3000_T1
+        )
+endif()
 if (DEFINED CFG_TC3000_18E1)
     add_definitions(
         -DTC3000_T1
@@ -196,7 +201,7 @@ add_library(mediastreamer STATIC
     castor3snd.c
     basedescs.h
     voipdescs.h
-    hwengine.c
+    #hwengine.c
     mkv.c
     videostream.c
     #mkvplayerstream.c

@@ -98,3 +98,12 @@ aec can run in arm with another Algorithm
 it can be better aec effect but need more CPU loading
 ***/
 static void AEC_IN_ARM_INIT(int *AECframesize);
+
+/***
+AEC_IN_ARM_UNINIT
+
+ifndef RUN_IN_RISC (in sbc_aec_api.c)
+aec can run in arm with another Algorithm 
+it can be better aec effect but need more CPU loading
+***/
+static void AEC_IN_ARM_UNINIT(void);

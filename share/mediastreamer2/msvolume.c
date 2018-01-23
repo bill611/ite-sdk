@@ -229,7 +229,7 @@ static void volume_noise_gate_process(Volume *v , float energy, mblk_t *om){
 	else {
 		if (v->ng_noise_dur > 0) {
 			v->ng_noise_dur -= (nsamples * 1000) / v->sample_rate;
-			tgain = 1.0;
+			//tgain = 1.0;
 		}
 	}
 	/* simple averaging computation is adequate here: fast rise, relatively slower decrease */

@@ -35,6 +35,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 
 #define MS_WAV_FILE_OPEN       MS_FILTER_METHOD(MS_MIXVOICE_ID,0,const char)
+
+#define MS_MIXVOISE_SET_LEVEL  MS_FILTER_METHOD(MS_MIXVOICE_ID,1,const float)
+
+#define MS_MIXVOISE_SET_LOOP   MS_FILTER_METHOD(MS_MIXVOICE_ID,2,const int)
 /**
  * Structure describing a custom tone.
 **/

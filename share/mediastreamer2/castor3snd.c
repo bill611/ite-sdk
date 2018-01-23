@@ -19,10 +19,10 @@
 
 MSFilter *ms_castor3snd_read_new(MSSndCard *card);
 MSFilter *ms_castor3snd_write_new(MSSndCard *card);
+bool_t Issbccodec=FALSE;
 
 static STRC_I2S_SPEC spec_da = {0};
 static STRC_I2S_SPEC spec_ad = {0};
-static int SBCAECflag=0;
 
 typedef struct Castor3SndData{
     char *pcmdev;
@@ -161,7 +161,8 @@ static void castor3snd_init(MSSndCard *card)
 #endif
 
     iteAudioOpenEngine(ITE_SBC_CODEC);
-    SBCAECflag=1;
+    	Issbccodec = TRUE;
+
     /* init DAC */
     d->dac_buf_len = 128 * 1024;
     d->dac_buf = (uint8_t*)malloc(d->dac_buf_len);
@@ -323,6 +324,7 @@ static void *castor3snd_txthread(void *p)
     int DAcount = 0;
     uint32_t DA_r_pre;
     bool the_first_write = TRUE;
+    d->rate = spec_da.sample_rate;
     if(d->rate == CFG_AUDIO_SAMPLING_RATE && d->read_started) 
         bsize=(256*d->rate)/8000;//16K call
     else
@@ -590,7 +592,7 @@ static void *castor3snd_aec_txthread(void *p)
             continue;
         }
         
-        if(d->use_aec){
+        if(d->SBC){
             mblk_t *outSPK,*refm;
             outSPK = allocb(nbytes,0);
             refm   = allocb(nbytes,0);
@@ -600,6 +602,7 @@ static void *castor3snd_aec_txthread(void *p)
                 memcpy(wtmpbuff,outSPK->b_rptr,nbytes);
                 if(outSPK) freemsg(outSPK);
             }else{
+                if(refm) freemsg(refm);
                 if(outSPK) freemsg(outSPK);
                 continue;
             }            
@@ -697,7 +700,6 @@ static void *castor3snd_aec_rxthread(void *p)
 {
     MSSndCard *card = (MSSndCard*)p;
     Castor3SndData *d = (Castor3SndData*)card->data;
-    uint32_t sleep_time = 20000;
     int nbytes = 640;    
 #if (CFG_CHIP_FAMILY == 9910 || CFG_CHIP_FAMILY == 9850)
 		uint32_t AD_r,AD_w;
@@ -775,22 +777,10 @@ static void *castor3snd_aec_rxthread(void *p)
                 //d->bytes_read += bsize;
             }
         }
-        
-        if (rm && !d->SBC->delayset)
-        {
-            ms_mutex_lock(&d->ad_mutex);
-            putq(&d->rq, dupmsg(rm));
-            ms_mutex_unlock(&d->ad_mutex);
-            //d->stat_input++;
-            //rm = NULL;
-            
-            usleep(sleep_time);
-            //continue ;
-        }        
-
+        //nbytes = bsize;
         if (rm)
         {
-            mblk_t *tmp;
+
             ms_bufferizer_put(d->rxbufferizer,rm);
             rm = NULL;
             if(d->SBC){
@@ -815,6 +805,7 @@ static void *castor3snd_aec_rxthread(void *p)
                
                 }
             }else{
+                mblk_t *tmp;
                 tmp = allocb(nbytes,0);
                 if(ms_bufferizer_read(d->rxbufferizer,tmp->b_wptr,nbytes)){
                     tmp->b_wptr += nbytes;
@@ -827,12 +818,11 @@ static void *castor3snd_aec_rxthread(void *p)
             }
             
         }
-
-#ifdef CFG_CHIP_PKG_IT9910
-        usleep(1000);
-#else
-        usleep(sleep_time);
-#endif        
+                      
+        if (d->read_started == FALSE)
+            break; 
+        
+        usleep(10000);        
     }
 
     i2s_pause_ADC(1);
@@ -848,9 +838,9 @@ static void *castor3snd_aec_rxthread(void *p)
 
 static void castor3snd_init_aec(MSSndCard *card){
     Castor3SndData *d=(Castor3SndData*)card->data;
-    if(d->SBC == NULL && d->use_aec){
+    if(d->SBC == NULL){
         ms_mutex_lock(&d->sbc_mutex);
-        d->SBC = AEC_ITE_INIT(8000,320,CFG_AEC_DELAY_MS,FALSE);
+        d->SBC = AEC_ITE_INIT(8000,320,0,FALSE);
         ms_mutex_unlock(&d->sbc_mutex);  
     }
     printf("castor3snd_init_aec\n");
@@ -858,11 +848,11 @@ static void castor3snd_init_aec(MSSndCard *card){
 
 static void castor3snd_uninit_aec(MSSndCard *card){
     Castor3SndData *d=(Castor3SndData*)card->data;
-    if(d->SBC != NULL && d->use_aec){
+    if(d->SBC != NULL){
         ms_mutex_lock(&d->sbc_mutex); 
         AEC_ITE_UNINIT(d->SBC);
         d->SBC=NULL;
-        ms_mutex_lock(&d->sbc_mutex);        
+        ms_mutex_unlock(&d->sbc_mutex);        
     }
     d->use_aec = FALSE;
     ms_bufferizer_flush(d->rxbufferizer);  
@@ -940,8 +930,7 @@ static void castor3snd_read_postprocess(MSFilter *f){
     Castor3SndData *d=(Castor3SndData*)card->data;
 //printf("### [%s] postprocess\n", f->desc->name);
     //ms_ticker_set_time_func(f->ticker,NULL,NULL);
-    castor3snd_stop_r(card);
-    castor3snd_uninit_aec(card);    
+    castor3snd_stop_r(card);  
     memset(d->adc_buf, 0, d->adc_buf_len);
     flushq(&d->rq,0);
 }
@@ -969,7 +958,8 @@ static void castor3snd_write_postprocess(MSFilter *f){
     memset(d->dac_buf, 0, d->dac_buf_len);
     d->datalength = -1;
     d->write_EOF = FALSE;
-    ms_bufferizer_flush(d->bufferizer);    
+    ms_bufferizer_flush(d->bufferizer);
+    castor3snd_uninit_aec(card);    
 }
 
 static void castor3snd_write_process(MSFilter *f){
@@ -1092,16 +1082,16 @@ MS_FILTER_DESC_EXPORT(castor3snd_write_desc)
 
 void castor3snd_deinit_for_video_memo_play(void)
 {
-    SBCAECflag = 0;
+    Issbccodec = FALSE;    
     spec_da.sample_rate = 0;
-    spec_da.sample_size = 0;
+    spec_da.sample_size = 0;        
     i2s_deinit_ADC();
     i2s_deinit_DAC();
 }
 void castor3snd_reinit_for_video_memo_play(void)
 {
     iteAudioOpenEngine(ITE_SBC_CODEC);
-    SBCAECflag = 1;
+    Issbccodec = TRUE;
     //i2s_init_DAC(&spec_da);
     //i2s_init_ADC(&spec_ad);
     //i2s_pause_ADC(1);

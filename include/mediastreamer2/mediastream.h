@@ -65,7 +65,8 @@ struct _RingStream
     MSFilter *gendtmf;
     MSFilter *write_resampler;
     MSFilter *sndwrite;
-    MSFilter *decoder;    
+    MSFilter *decoder; 
+    MSFilter *mixer;
 };
 
 typedef struct _RingStream RingStream;
@@ -187,9 +188,6 @@ struct _AudioStream
     MSFilter *teeforrecord;  //for MKV record   
     MSFilter *itcsink;       //for MKV record
     MSFilter *mixvoice;
-#if 0
-    MSFilter *webrtcagc;
-#endif
     struct {
         MSFilter *tee;             
         MSFilter *itcsink;
@@ -198,12 +196,15 @@ struct _AudioStream
         MSFilter *encoder;
         MSTicker *ticker;
     } a_recorder;//for audiostream rec
+    int audiorate;
+    char *filename;
     uint64_t last_packet_count;
     time_t last_packet_time;
     EchoLimiterType el_type; /*use echo limiter: two MSVolume, measured input level controlling local output level*/
+    int use_ec;//filter acoustic echo cancellation (0 no aec ,1:aec method with filter ,2:aec method without filter);
     bool_t eq_SPK;//filter speaker equalizer
     bool_t eq_MIC;//filter mic equalizer
-    bool_t use_ec;//filter acoustic echo cancellation
+    bool_t use_codec;//filter codec(encoder & decoder)
     bool_t use_mix;//filter mix sound
     bool_t use_volsend;//filter volsend dsp
     bool_t use_volrecv;//filter volrecv dsp
@@ -211,6 +212,8 @@ struct _AudioStream
     bool_t use_gc;//gain control function
     bool_t use_agc;//acoustic gain control function
     bool_t use_ng;//noise gate function
+    bool_t receive_graph;//
+    bool_t send_graph;
 };
 
 /**
@@ -297,7 +300,7 @@ MS2_PUBLIC int audio_stream_start_with_files (AudioStream * stream, RtpProfile *
 **/
 MS2_PUBLIC int audio_stream_start_full(AudioStream *stream, RtpProfile *profile, const char *rem_rtp_ip,int rem_rtp_port,
     const char *rem_rtcp_ip, int rem_rtcp_port, int payload,int jitt_comp, const char *infile, const char *outfile,
-    MSSndCard *playcard, MSSndCard *captcard, bool_t use_ec, LinphoneAudioStreamFlow select_flow);
+    MSSndCard *playcard, MSSndCard *captcard, int use_ec, LinphoneAudioStreamFlow select_flow);
 
 
 MS2_PUBLIC void audio_stream_play(AudioStream *st, const char *name);
@@ -424,7 +427,7 @@ MS2_PUBLIC VoiceMemoRecordStream *voice_memo_start_record (const char * file, MS
 MS2_PUBLIC void voice_memo_stop_record (VoiceMemoRecordStream * stream);
 MS2_PUBLIC VoiceMemoPlayStream *voice_memo_start_play (const char * file, MSSndCard *sndcard);
 MS2_PUBLIC void voice_memo_stop_play (VoiceMemoPlayStream * stream);
-MS2_PUBLIC void voice_mix_flag (AudioStream* stream,const char * file);
+MS2_PUBLIC void voice_mix_flag (AudioStream* stream,const char * file,bool_t loop);
 #if ENABLE_AUDIO_ENGENEER_MODEL
 MS2_PUBLIC Playrecstream *voice_playrec_start(MSSndCard *sndcard, MSSndCard *captcard);
 MS2_PUBLIC void voice_playrec_stop(Playrecstream * stream);
