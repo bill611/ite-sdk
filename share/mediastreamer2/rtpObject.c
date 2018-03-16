@@ -44,6 +44,9 @@ typedef struct _RtpObjData {
 	void *heart_data;
 }RtpObjData;
 
+
+extern struct _Queue *queue;
+
 #define MAXENCODEPACKET_BZ (120*1024-16)
 #define MAXENCODEPACKET_U9 (60*1024-16)
 
@@ -52,7 +55,7 @@ typedef struct _RtpObjData {
 
 #define MAX_TIMEOUT_CNT 10
 
-typedef struct _rec_body_bz{
+typedef struct _RecBodyBZ{
     unsigned int        packet_cnt;     //分包数量
     unsigned int        packet_size;    //分包大小
     unsigned int        packet_idx;     //包索引
@@ -65,9 +68,9 @@ typedef struct _rec_body_bz{
     unsigned int        vtype;          //第一帧类型
     unsigned int        checksum;       // 校验和
     unsigned char       sdata[MAXENCODEPACKET_BZ]; //帧数据
-}rec_body_bz;
+}RecBodyBZ;
 
-typedef struct _rec_body_u9{
+typedef struct _RecBodyU9{
     unsigned int        packet_cnt;     //分包数量
     unsigned short      packet_size;    //分包大小
     unsigned short      packet_idx;     //包索引
@@ -80,23 +83,23 @@ typedef struct _rec_body_u9{
   	unsigned short      vtype;          //第一帧类型
     unsigned int        checksum;       // 校验和
     unsigned char       sdata[MAXENCODEPACKET_U9]; //帧数据
-}rec_body_u9;
+}RecBodyU9;
 
 
 /* ---------------------------------------------------------------------------*
  *                      variables define
  *----------------------------------------------------------------------------*/
-static rec_body_bz audio_data_bz;
-static rec_body_bz heart_data_bz;
-static rec_body_u9 audio_data_u9;
-static rec_body_u9 heart_data_u9;
+static RecBodyBZ audio_data_bz;
+static RecBodyBZ heart_data_bz;
+static RecBodyU9 audio_data_u9;
+static RecBodyU9 heart_data_u9;
 
 static RtpObjData rtp[] = {
 	// PROTOCOL_BZ
 	{
 		.max_encode_packet = MAXENCODEPACKET_BZ,
-		.body_size = (unsigned int)sizeof(rec_body_bz),
-		.head_size = (unsigned int)sizeof(rec_body_bz) - MAXENCODEPACKET_BZ,
+		.body_size = (unsigned int)sizeof(RecBodyBZ),
+		.head_size = (unsigned int)sizeof(RecBodyBZ) - MAXENCODEPACKET_BZ,
 		.max_mtu = MAXMTUBZ,
 		.audio_data = &audio_data_bz,
 		.heart_data = &heart_data_bz,
@@ -104,13 +107,19 @@ static RtpObjData rtp[] = {
 	// PROTOCOL_U9
 	{
 		.max_encode_packet = MAXENCODEPACKET_U9,
-		.body_size = (unsigned int)sizeof(rec_body_u9),
-		.head_size = (unsigned int)sizeof(rec_body_u9) - MAXENCODEPACKET_U9,
+		.body_size = (unsigned int)sizeof(RecBodyU9),
+		.head_size = (unsigned int)sizeof(RecBodyU9) - MAXENCODEPACKET_U9,
 		.max_mtu = MAXMTUU9,
 		.audio_data = &audio_data_u9,
 		.heart_data = &heart_data_u9,
 	}
 };
+
+typedef struct _AudioVideoBuf{
+    int size;
+    unsigned int recv_ip;
+    unsigned char data[MAXMTUBZ+1024];
+}AudioVideoBuf;
 
 static int tcRtpSendBuffer(int socket,
 		void *pBuf,
@@ -127,7 +136,7 @@ static int tcRtpSendBuffer(int socket,
 	}
 
 	if (isProtocolBZ() == 1) {
-		rec_body_bz *pbody = (rec_body_bz*)pBuf;
+		RecBodyBZ *pbody = (RecBodyBZ*)pBuf;
 		pbody->packet_cnt = Cnt;
 		pbody->packet_size = rtp[getConfigProtocol()].max_mtu;
 		pbody->dead = 0;			//不通过服务器转发
@@ -144,7 +153,7 @@ static int tcRtpSendBuffer(int socket,
 			Pos+=rtp[getConfigProtocol()].max_mtu;
 		}
 	} else {
-		rec_body_u9 *pbody = (rec_body_u9*)pBuf;
+		RecBodyU9 *pbody = (RecBodyU9*)pBuf;
 		pbody->packet_cnt = Cnt;
 		pbody->packet_size = rtp[getConfigProtocol()].max_mtu;
 		pbody->dead = 0;			//不通过服务器转发
@@ -225,7 +234,7 @@ static int udpSendBuffer(int socket,const char *IP,int port,const void *pBuf,int
 }
 int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 {
-	int i,j,Pos,Len;
+	int i,j,k,Pos,Len;
 	unsigned int Cnt;
     unsigned int PackID;
 	char cTmpBuf[MAXMTUBZ+1024],*pData;
@@ -240,25 +249,32 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 	TRegisiterDev * reg_dev;
 	reg_dev = protocol->getRegistDev();
 	//如果IP不对，丢弃该包
-	for(i=0;i<MAX_TIMEOUT_CNT;i++) {
-		Pos = udpReciveBuffer(socket,pBuf,rtp[getConfigProtocol()].body_size,(struct sockaddr*)&remote_addr,&len,time_out);
-		//接收错误，由下面过程处理
-		if(Pos<=0)
-			break;
+	AudioVideoBuf audio_buf;
+	if (queue->get(queue,&audio_buf) > 0) {
+		RecvIP = audio_buf.recv_ip;
+		Pos = audio_buf.size;
+		memcpy(pBuf,audio_buf.data,audio_buf.size);
+	} else {
+		for(i=0;i<MAX_TIMEOUT_CNT;i++) {
+			Pos = udpReciveBuffer(socket,pBuf,rtp[getConfigProtocol()].body_size,(struct sockaddr*)&remote_addr,&len,time_out);
+			//接收错误，由下面过程处理
+			if(Pos<=0)
+				break;
 
-		RecvIP = remote_addr.sin_addr.s_addr;
-		// 转发分机发的数据到门口机
-		if(isConfigMaster()) {
-			int k;
-			for(k=0; k<MAXFJCOUNT; k++) {
-				if(reg_dev[k].bTalk && (reg_dev[k].dwIP == RecvIP)) {
-					udpSendBuffer(socket,ip,8800,pBuf,Pos);
-					break;
+			RecvIP = remote_addr.sin_addr.s_addr;
+			// 转发分机发的数据到门口机
+			if(isConfigMaster()) {
+				int k;
+				for(k=0; k<MAXFJCOUNT; k++) {
+					if(reg_dev[k].bTalk && (reg_dev[k].dwIP == RecvIP)) {
+						udpSendBuffer(socket,ip,8800,pBuf,Pos);
+						break;
+					}
 				}
 			}
+			if (RecvIP == inet_addr(ip))
+				break;
 		}
-		if (RecvIP == inet_addr(ip))
-			break;
 	}
 	if(i == MAX_TIMEOUT_CNT)
 		return 0;
@@ -279,7 +295,7 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 	RecvTimeOut = 0;
 
 	if (isProtocolBZ() == 1) {
-		rec_body_bz *pbody = (rec_body_bz*)pBuf;
+		RecBodyBZ *pbody = (RecBodyBZ*)pBuf;
 		//首包索引必须为0
 		if(pbody->packet_idx != 0)
 			return 0;
@@ -300,45 +316,64 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 			return Pos;
 
 		//接收剩余的分包
-		pbody = (rec_body_bz*)cTmpBuf;
+		pbody = (RecBodyBZ*)cTmpBuf;
 		for(i=1;i<Cnt;i++) {
-			//如果IP不对，丢弃该包
-			for(j=0;j<MAX_TIMEOUT_CNT;j++) {
-				Len = udpReciveBuffer(socket,cTmpBuf,rtp[getConfigProtocol()].max_mtu+rtp[getConfigProtocol()].head_size,(struct sockaddr*)&remote_addr,&len,time_out);
-				if(Len <= 0)
-					break;
+			for (k=0; k<MAX_TIMEOUT_CNT; k++) {
 
-				unsigned int RecvIP2 = remote_addr.sin_addr.s_addr;
-				// 转发分机的数据到门口机
-				if(isConfigMaster()) {
-					int k;
-					for(k=0; k<MAXFJCOUNT; k++) {
-						if(reg_dev[k].bTalk && (reg_dev[k].dwIP == RecvIP2)) {
-							udpSendBuffer(socket,ip,8800,cTmpBuf,Len);
-							break;
+				//如果IP不对，丢弃该包
+				for(j=0;j<MAX_TIMEOUT_CNT;j++) {
+					Len = udpReciveBuffer(socket,cTmpBuf,rtp[getConfigProtocol()].max_mtu+rtp[getConfigProtocol()].head_size,(struct sockaddr*)&remote_addr,&len,time_out);
+					if(Len <= 0)
+						break;
+
+					unsigned int RecvIP2 = remote_addr.sin_addr.s_addr;
+					// 转发分机的数据到门口机
+					if(isConfigMaster()) {
+						int k;
+						for(k=0; k<MAXFJCOUNT; k++) {
+							if(reg_dev[k].bTalk && (reg_dev[k].dwIP == RecvIP2)) {
+								udpSendBuffer(socket,ip,8800,cTmpBuf,Len);
+								break;
+							}
 						}
 					}
+					if(RecvIP2 == RecvIP)
+						break;
+
 				}
-				if(RecvIP2 == RecvIP)
+				if(j == MAX_TIMEOUT_CNT)
+					Len = 0;
+
+				if(Len <= 0) {
+					RecvTimeOut++;
+					printf("[2]Rtp recv data timeout %d\n",RecvTimeOut);
+					if(RecvTimeOut<MAX_TIMEOUT_CNT)
+						return 0;
+					return -1;
+				}
+
+				if(pbody->seq != PackID) {  //帧号错误
+					// printf("--------->[%03d][%03d,%03d]--------->[packet_cnt:%02d,%02d],s:%05d\n",
+							// i,pbody->seq,PackID,pbody->packet_cnt,pbody->packet_idx,pbody->slen );
+					if (pbody->packet_cnt != Cnt) {
+						audio_buf.recv_ip = RecvIP;
+						audio_buf.size = Len;
+						memcpy(audio_buf.data,cTmpBuf,Len);
+						queue->post(queue,&audio_buf);
+						if (pbody->slen)
+							return 0;
+					}
+				} else  {
+					// printf(" [%03d][%03d,%03d]--------->[packet_cnt:%02d,%02d],s:%05d\n",
+							// i,pbody->seq,PackID,pbody->packet_cnt,pbody->packet_idx,pbody->slen );
 					break;
+				}
+				// if(pbody->seq != PackID) 				//帧号错误
+					// return 0;
 
-			}
-			if(j == MAX_TIMEOUT_CNT)
-				Len = 0;
-
-			if(Len <= 0) {
-				RecvTimeOut++;
-				printf("[2]Rtp recv data timeout %d\n",RecvTimeOut);
-				if(RecvTimeOut<MAX_TIMEOUT_CNT)
+				if(pbody->packet_idx >= Cnt) 			//分包索引错误
 					return 0;
-				return -1;
 			}
-
-			if(pbody->seq != PackID) 				//帧号错误
-				return 0;
-
-			if(pbody->packet_idx >= Cnt) 			//分包索引错误
-				return 0;
 
 
 			// 转发门口机的数据到分机
@@ -353,7 +388,7 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 			Pos += Len-rtp[getConfigProtocol()].head_size;
 		}
 	} else {
-		rec_body_u9 *pbody = (rec_body_u9*)pBuf;
+		RecBodyU9 *pbody = (RecBodyU9*)pBuf;
 		//首包索引必须为0
 		if(pbody->packet_idx != 0)
 			return 0;
@@ -374,45 +409,64 @@ int tcRtpRecvVideoAudioBuffer(int socket,char *ip,void *pBuf,int time_out)
 			return Pos;
 
 		//接收剩余的分包
-		pbody = (rec_body_u9*)cTmpBuf;
+		pbody = (RecBodyU9*)cTmpBuf;
 		for(i=1;i<Cnt;i++) {
-			//如果IP不对，丢弃该包
-			for(j=0;j<MAX_TIMEOUT_CNT;j++) {
-				Len = udpReciveBuffer(socket,cTmpBuf,rtp[getConfigProtocol()].max_mtu+rtp[getConfigProtocol()].head_size,(struct sockaddr*)&remote_addr,&len,time_out);
-				if(Len <= 0)
-					break;
+			for (k=0; k<MAX_TIMEOUT_CNT; k++) {
 
-				unsigned int RecvIP2 = remote_addr.sin_addr.s_addr;
-				// 转发分机的数据到门口机
-				if(isConfigMaster()) {
-					int k;
-					for(k=0; k<MAXFJCOUNT; k++) {
-						if(reg_dev[k].bTalk && (reg_dev[k].dwIP == RecvIP2)) {
-							udpSendBuffer(socket,ip,8800,cTmpBuf,Len);
-							break;
+				//如果IP不对，丢弃该包
+				for(j=0;j<MAX_TIMEOUT_CNT;j++) {
+					Len = udpReciveBuffer(socket,cTmpBuf,rtp[getConfigProtocol()].max_mtu+rtp[getConfigProtocol()].head_size,(struct sockaddr*)&remote_addr,&len,time_out);
+					if(Len <= 0)
+						break;
+
+					unsigned int RecvIP2 = remote_addr.sin_addr.s_addr;
+					// 转发分机的数据到门口机
+					if(isConfigMaster()) {
+						int k;
+						for(k=0; k<MAXFJCOUNT; k++) {
+							if(reg_dev[k].bTalk && (reg_dev[k].dwIP == RecvIP2)) {
+								udpSendBuffer(socket,ip,8800,cTmpBuf,Len);
+								break;
+							}
 						}
 					}
+					if(RecvIP2 == RecvIP)
+						break;
+
 				}
-				if(RecvIP2 == RecvIP)
+				if(j == MAX_TIMEOUT_CNT)
+					Len = 0;
+
+				if(Len <= 0) {
+					RecvTimeOut++;
+					printf("[2]Rtp recv data timeout %d\n",RecvTimeOut);
+					if(RecvTimeOut<MAX_TIMEOUT_CNT)
+						return 0;
+					return -1;
+				}
+
+				if(pbody->seq != PackID) {  //帧号错误
+					// printf("--------->[%03d][%03d,%03d]--------->[packet_cnt:%02d,%02d],s:%05d\n",
+							// i,pbody->seq,PackID,pbody->packet_cnt,pbody->packet_idx,pbody->slen );
+					if (pbody->packet_cnt != Cnt) {
+						audio_buf.recv_ip = RecvIP;
+						audio_buf.size = Len;
+						memcpy(audio_buf.data,cTmpBuf,Len);
+						queue->post(queue,&audio_buf);
+						if (pbody->slen)
+							return 0;
+					}
+				} else  {
+					// printf(" [%03d][%03d,%03d]--------->[packet_cnt:%02d,%02d],s:%05d\n",
+							// i,pbody->seq,PackID,pbody->packet_cnt,pbody->packet_idx,pbody->slen );
 					break;
+				}
+				// if(pbody->seq != PackID) 				//帧号错误
+					// return 0;
 
-			}
-			if(j == MAX_TIMEOUT_CNT)
-				Len = 0;
-
-			if(Len <= 0) {
-				RecvTimeOut++;
-				printf("[2]Rtp recv data timeout %d\n",RecvTimeOut);
-				if(RecvTimeOut<MAX_TIMEOUT_CNT)
+				if(pbody->packet_idx >= Cnt) 			//分包索引错误
 					return 0;
-				return -1;
 			}
-
-			if(pbody->seq != PackID) 				//帧号错误
-				return 0;
-
-			if(pbody->packet_idx >= Cnt) 			//分包索引错误
-				return 0;
 
 
 			// 转发门口机的数据到分机
@@ -443,7 +497,7 @@ void tcRtpSendAudio(int socket,
 		int addr_len)
 {
 	if (isProtocolBZ() == 1) {
-		rec_body_bz *audio_data = (rec_body_bz*)rtp[getConfigProtocol()].audio_data;
+		RecBodyBZ *audio_data = (RecBodyBZ*)rtp[getConfigProtocol()].audio_data;
 		audio_data->seq++;
 		audio_data->vtype = 0;
 		audio_data->slen = 0;
@@ -456,7 +510,7 @@ void tcRtpSendAudio(int socket,
 				addr,
 				addr_len);
 	} else {
-		rec_body_u9 *audio_data = (rec_body_u9*)rtp[getConfigProtocol()].audio_data;
+		RecBodyU9 *audio_data = (RecBodyU9*)rtp[getConfigProtocol()].audio_data;
 		audio_data->seq++;
 		audio_data->vtype = 0;
 		audio_data->slen = 0;
@@ -475,7 +529,7 @@ void tcRtpSendHeart(int socket,
 		int addr_len)
 {
 	if (isProtocolBZ() == 1) {
-		rec_body_bz *heart_data = (rec_body_bz*)rtp[getConfigProtocol()].heart_data;
+		RecBodyBZ *heart_data = (RecBodyBZ*)rtp[getConfigProtocol()].heart_data;
 		heart_data->seq = 0;
 		heart_data->vtype = 0;
 		heart_data->slen = 0;
@@ -487,7 +541,7 @@ void tcRtpSendHeart(int socket,
 				addr,
 				addr_len);
 	} else {
-		rec_body_u9 *heart_data = (rec_body_u9*)rtp[getConfigProtocol()].heart_data;
+		RecBodyU9 *heart_data = (RecBodyU9*)rtp[getConfigProtocol()].heart_data;
 		heart_data->seq = 0;
 		heart_data->vtype = 0;
 		heart_data->slen = 0;
@@ -503,30 +557,30 @@ void tcRtpSendHeart(int socket,
 int tcRtpGetAudioReady(void *buf)
 {
 	if (isProtocolBZ() == 1) {
-		rec_body_bz *pbody = (rec_body_bz*)buf;
+		RecBodyBZ *pbody = (RecBodyBZ*)buf;
 		return pbody->alen ? 1 : 0;
 	} else {
-		rec_body_u9 *pbody = (rec_body_u9*)buf;
+		RecBodyU9 *pbody = (RecBodyU9*)buf;
 		return pbody->alen ? 1 : 0;
 	}
 }
 int tcRtpGetVideoReady(void *buf)
 {
 	if (isProtocolBZ() == 1) {
-		rec_body_bz *pbody = (rec_body_bz*)buf;
+		RecBodyBZ *pbody = (RecBodyBZ*)buf;
 		return pbody->slen ? 1 : 0;
 	} else {
-		rec_body_u9 *pbody = (rec_body_u9*)buf;
+		RecBodyU9 *pbody = (RecBodyU9*)buf;
 		return pbody->slen ? 1 : 0;
 	}
 }
 unsigned char * tcRtpGetVideoData(void *buf)
 {
 	if (isProtocolBZ() == 1) {
-		rec_body_bz *pbody = (rec_body_bz*)buf;
+		RecBodyBZ *pbody = (RecBodyBZ*)buf;
 		return pbody->sdata;
 	} else {
-		rec_body_u9 *pbody = (rec_body_u9*)buf;
+		RecBodyU9 *pbody = (RecBodyU9*)buf;
 		return pbody->sdata;
 	}
 }
@@ -538,20 +592,20 @@ unsigned char * tcRtpGetAudioData(void *buf)
 unsigned int  tcRtpGetVideoLen(void *buf)
 {
 	if (isProtocolBZ() == 1) {
-		rec_body_bz *pbody = (rec_body_bz*)buf;
+		RecBodyBZ *pbody = (RecBodyBZ*)buf;
 		return pbody->slen;
 	} else {
-		rec_body_u9 *pbody = (rec_body_u9*)buf;
+		RecBodyU9 *pbody = (RecBodyU9*)buf;
 		return pbody->slen;
 	}
 }
 unsigned int  tcRtpGetAudioLen(void *buf)
 {
 	if (isProtocolBZ() == 1) {
-		rec_body_bz *pbody = (rec_body_bz*)buf;
+		RecBodyBZ *pbody = (RecBodyBZ*)buf;
 		return pbody->alen;
 	} else {
-		rec_body_u9 *pbody = (rec_body_u9*)buf;
+		RecBodyU9 *pbody = (RecBodyU9*)buf;
 		return pbody->alen;
 	}
 }

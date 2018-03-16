@@ -8,6 +8,7 @@
 #include "3000_indoor_no_touch/config.h"
 #include "3000_indoor_no_touch/tc_protocol/public.h"
 #include "3000_indoor_no_touch/tc_protocol/protocol.h"
+#include "3000_indoor_touch/tc_protocol/queue.h"
 #endif
 
 
@@ -19,9 +20,11 @@
 #include "3000_indoor_touch/config.h"
 #include "3000_indoor_touch/tc_protocol/public.h"
 #include "3000_indoor_touch/tc_protocol/protocol.h"
+#include "3000_indoor_touch/tc_protocol/queue.h"
 #endif
 
 #if (defined TC3100_18D1)
 #include "3100_indoor_touch/config.h"
 #include "3100_indoor_touch/tc_protocol/protocol.h"
+#include "3000_indoor_touch/tc_protocol/queue.h"
 #endif

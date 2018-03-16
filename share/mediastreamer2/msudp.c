@@ -8,6 +8,7 @@
 // #define BUILD_TC
 #ifdef BUILD_TC
 #include "tc/rtpObject.h"
+#include "tc_include.h"
 #endif
 
 #define FILE_MODE      0
@@ -26,9 +27,16 @@ struct SenderData{
 	volatile bool_t thread_exit;
 };
 
+typedef struct _AudioVideoBuf{
+    int size;
+    unsigned int recv_ip;
+    unsigned char data[1400+1024];
+}AudioVideoBuf;
+
 typedef struct SenderData SenderData;
 #ifdef BUILD_TC
 static SenderData *audio_senderdata_tmp = NULL;
+struct _Queue *queue = NULL;
 static int audio_send_sokect ;
 #endif
 static char rec_ip[16] ; // xb add 20170504
@@ -673,6 +681,11 @@ static void *audio_receive_thread(void *arg)
 		audio_senderdata_tmp =(ReceiverData *) ms_new0(ReceiverData,1);
 		ms_queue_init(&(audio_senderdata_tmp->data_queue));
 		msgb_allocator_init(&(audio_senderdata_tmp->allocator));
+		if (queue)
+			return;
+		queue = queueCreate("udp", QUEUE_NONBLOCK, sizeof(AudioVideoBuf));
+		if (queue == NULL)
+			printf("create queue false\n");
 #endif
 	}
 

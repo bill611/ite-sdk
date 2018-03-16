@@ -95,6 +95,12 @@ if (DEFINED CFG_TC3000_18A1)
         -DTC3000_Z1
         )
 endif()
+if (DEFINED CFG_TC3000_Z1_CM_BIGICON)
+    add_definitions(
+		-DTC3000_Z1_CM
+		-DTC3000_Z1_CM_BIGICON
+        )
+endif()
 
 if (DEFINED CFG_BUILD_LEAF)
 	add_definitions(
