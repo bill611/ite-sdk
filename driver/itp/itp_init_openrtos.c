@@ -214,7 +214,7 @@ void itpInit(void)
 
 
 #ifdef CFG_DBG_STATS
-    itpStatsInit();
+    // itpStatsInit();
 #endif
 
 #ifdef CFG_WATCHDOG_ENABLE
