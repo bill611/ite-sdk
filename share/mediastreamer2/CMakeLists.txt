@@ -106,6 +106,11 @@ if (DEFINED CFG_TC3000_X1_XABGY)
 		-DTC3000_X1
         )
 endif()
+if (DEFINED CFG_TC3000_X1_KSWK)
+    add_definitions(
+		-DTC3000_X1
+        )
+endif()
 if (DEFINED CFG_BUILD_LEAF)
 	add_definitions(
 		-DCFG_BUILD_LEAF
